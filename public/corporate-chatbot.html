@@ -122,7 +122,9 @@
       messages.appendChild(loading);
       messages.scrollTop = messages.scrollHeight;
       try {
-        const res = await fetch('/api/chat', {
+        const isUnprotected = window.location.pathname === '/unprotected/chat-page';
+        const endpoint = isUnprotected ? '/unprotected/chat' : '/api/chat';
+        const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text })
