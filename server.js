@@ -318,6 +318,59 @@ app.get('/unprotected/git-repository', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'git-repository.html'));
 });
 
+// Scenario E: Protected Papers Portal - Anti-Scraping Mass Extraction
+app.get('/api/paper', conditionalTollAI('paper-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'paper-portal',
+    message: req.tollMetadata.bypassed ? 'Paper metadata accessed (NO PROTECTION)' : 'Paper metadata accessed - Human verified',
+    paper: {
+      title: 'Advanced Detection of Autonomous AI Agents via Cognitive Response Timing',
+      authors: ['A. Chen', 'M. Webb', 'J. Liu', 'S. Patel'],
+      pages: 6,
+      access_level: 'RESTRICTED',
+      doi: '10.XXXX/revault.2024.001'
+    },
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/paper/page/:page', conditionalTollAI('paper-portal'), (req, res) => {
+  const pageNum = parseInt(req.params.page) || 1;
+  res.json({
+    status: 'ok',
+    scenario: 'paper-portal',
+    page: pageNum,
+    total_pages: 6,
+    content: `Page ${pageNum} content - this is restricted academic content protected by TollAI cognitive flow analysis.`,
+    access_level: 'RESTRICTED',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/paper', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'paper-portal',
+    message: 'Paper metadata accessed (UNPROTECTED MODE)',
+    paper: { title: 'Advanced Detection...', pages: 6, access_level: 'RESTRICTED' },
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'paper-portal', bypassed: true }
+  });
+});
+
+app.get('/unprotected/paper/page/:page', (req, res) => {
+  const pageNum = parseInt(req.params.page) || 1;
+  res.json({
+    status: 'ok',
+    scenario: 'paper-portal',
+    page: pageNum,
+    total_pages: 6,
+    content: `Page ${pageNum} content (UNPROTECTED)`,
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'paper-portal', bypassed: true }
+  });
+});
+
+
 // Root - Dashboard
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'tollai-dashboard.html'));
@@ -347,21 +400,27 @@ const server = app.listen(PORT, () => {
   console.log('   POST /api/social/post             → Social Forum');
   console.log('   GET  /api/git/source-code         → Git Repository');
   console.log('   POST /api/chat                    → Corporate Chatbot');
+  console.log('   GET  /api/paper                   → Papers Portal');
+  console.log('   GET  /api/paper/page/:page        → Paper Page');
   console.log('📡 Unprotected API (TollAI bypassed):');
   console.log('   GET  /unprotected/news');
   console.log('   POST /unprotected/social/post');
   console.log('   GET  /unprotected/git/source-code');
   console.log('   POST /unprotected/chat');
+  console.log('   GET  /unprotected/paper');
+  console.log('   GET  /unprotected/paper/page/:page');
   console.log('📄 Protected Pages:');
   console.log('   GET  /news                        → News Portal (TollAI)');
   console.log('   GET  /forum                       → Social Forum (TollAI)');
   console.log('   GET  /git                         → Git Repository (TollAI)');
   console.log('   GET  /chat                        → Corporate Chatbot (TollAI)');
+  console.log('   GET  /paper                       → Papers Portal (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
   console.log('   GET  /unprotected/git-repository  → Git Repository (No TollAI)');
   console.log('   GET  /unprotected/chat-page      → Corporate Chatbot (No TollAI)');
+  console.log('   GET  /unprotected/paper-portal   → Papers Portal (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -380,5 +439,14 @@ app.get('/chat', conditionalTollAI('corporate-chatbot'), (req, res) => {
 app.get('/unprotected/chat-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'corporate-chatbot.html'));
 });
+
+
+app.get('/paper', conditionalTollAI('paper-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'paper-portal.html'));
+});
+app.get('/unprotected/paper-portal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'paper-portal.html'));
+});
+
 
 module.exports = app;

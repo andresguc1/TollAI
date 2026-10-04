@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResearchVault — Protected Papers Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400;1,700&family=Source+Sans+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --ink-light: #333;
+      --muted: #6a737d; --accent: #0969da; --accent-hover: #0860ca;
+      --success: #238636; --warning: #d29922; --danger: #da3633;
+      --code-bg: #f6f8fa; --border: #d0d7de; --rule: #ddd; --rule-dark: #999;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --ink-light: #b1bac4;
+        --muted: #8b949e; --accent: #58a6ff; --accent-hover: #79b8ff; --border: #30363d;
+        --code-bg: #161b22; --rule: #333; --rule-dark: #555; }
+    }
+    body { font-family: 'Merriweather', Georgia, serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .header-top { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1200px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; }
+    .badge { background: var(--success); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .main { max-width: 1000px; margin: 32px auto; padding: 0 20px; }
+    .paper { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .paper-header { padding: 24px; border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, var(--bg-elevated), var(--code-bg)); }
+    .paper-header h2 { font-size: 1.75rem; font-weight: 900; margin-bottom: 10px; line-height: 1.3; }
+    .meta { color: var(--muted); font-family: 'Source Sans Pro', sans-serif; font-size: 0.9rem; display: flex; gap: 16px; flex-wrap: wrap; }
+    .pages { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+    .page { border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .page-header { padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); display: flex; align-items: center; justify-content: space-between; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; color: var(--muted); }
+    .page-number { font-weight: 700; color: var(--ink); }
+    .page-content { padding: 32px; font-size: 0.95rem; line-height: 1.8; color: var(--ink-light); }
+    .abstract { background: var(--code-bg); border-left: 4px solid var(--accent); padding: 20px; margin-bottom: 24px; border-radius: 0 8px 8px 0; font-family: 'Source Sans Pro', sans-serif; }
+    .abstract strong { color: var(--ink); display: block; margin-bottom: 8px; }
+    .controls { padding: 20px 24px; border-top: 1px solid var(--border); background: var(--bg); display: flex; gap: 12px; }
+    .btn { padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-elevated); color: var(--ink); font-family: 'Source Sans Pro', sans-serif; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+    .btn:hover { background: var(--code-bg); }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">RV</span>
+        <div>
+          <h1>ResearchVault</h1>
+          <div class="tagline">Ultra-Confidential Papers Portal</div>
+        </div>
+      </a>
+    </div>
+  </header>
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — Mass extraction/scraping attempts detected by cognitive flow analysis</div>
+    <span class="badge">CLASSIFIED ACCESS</span>
+  </div>
+  <main class="main">
+    <article class="paper">
+      <div class="paper-header">
+        <h2>Advanced Detection of Autonomous AI Agents via Cognitive Response Timing</h2>
+        <div class="meta">
+          <span>Authors: A. Chen, M. Webb, J. Liu, S. Patel</span>
+          <span>Journal: Cybersecurity Research (2024)</span>
+          <span>DOI: 10.XXXX/revault.2024.001</span>
+          <span>Access Level: RESTRICTED</span>
+        </div>
+      </div>
+      <div class="pages" id="pages">
+        <div class="page">
+          <div class="page-header">
+            <span class="page-number">Page 1 of 6</span>
+            <span>Abstract & Introduction</span>
+          </div>
+          <div class="page-content">
+            <div class="abstract">
+              <strong>Abstract</strong>
+              This paper presents TollAI, a cognitive toll protocol for detecting autonomous AI agents based on response-time analysis and challenge-response mechanisms.
+            </div>
+            <p><strong>1. Introduction</strong></p>
+            <p>As autonomous AI agents become increasingly capable of browser automation, traditional CAPTCHA and bot detection mechanisms face new challenges...</p>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="loadNextPage()">Load Next Page (Human-paced simulation)</button>
+        <button class="btn" onclick="alert('Mass download is prohibited. All access is monitored.')">Download PDF</button>
+      </div>
+    </article>
+  </main>
+  <footer class="footer">
+    <p>© 2024 ResearchVault. All rights reserved. Access monitored by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+  <script>
+    let currentPage = 1;
+    const totalPages = 6;
+    const pageContent = [
+      '<div class="page"><div class="page-header"><span class="page-number">Page 2 of 6</span><span>Background</span></div><div class="page-content"><p><strong>2. Background</strong></p><p>Cognitive response timing provides a strong signal for distinguishing human interaction patterns from automated agents...</p></div></div>',
+      '<div class="page"><div class="page-header"><span class="page-number">Page 3 of 6</span><span>Threat Model</span></div><div class="page-content"><p><strong>3. Threat Model</strong></p><p>We consider adversaries deploying autonomous agents to scrape, extract, or interact with protected resources...</p></div></div>',
+      '<div class="page"><div class="page-header"><span class="page-number">Page 4 of 6</span><span>System Design</span></div><div class="page-content"><p><strong>4. System Design</strong></p><p>The TollAI middleware intercepts requests and applies dynamic challenge-response based on timing analysis...</p></div></div>',
+      '<div class="page"><div class="page-header"><span class="page-number">Page 5 of 6</span><span>Evaluation</span></div><div class="page-content"><p><strong>5. Evaluation</strong></p><p>Experiments show sub-1500ms automated agents are reliably detected with high precision...</p></div></div>',
+      '<div class="page"><div class="page-header"><span class="page-number">Page 6 of 6</span><span>Conclusion</span></div><div class="page-content"><p><strong>6. Conclusion</strong></p><p>TollAI demonstrates effective protection against autonomous AI agents through cognitive toll mechanisms.</p></div></div>'
+    ];
+    function loadNextPage() {
+      if (currentPage < totalPages) {
+        const pages = document.getElementById('pages');
+        pages.insertAdjacentHTML('beforeend', pageContent[currentPage-1]);
+        currentPage++;
+      }
+    }
+  </script>
+</body>
+</html>

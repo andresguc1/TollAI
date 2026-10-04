@@ -239,7 +239,10 @@ const SCENARIOS = [
       { id: 'git-repository', name: 'Git Repository', desc: 'IP / Source Code Protection', icon: '💻', 
         protected: { endpoint: '/api/git', method: 'GET', page: '/git' },
         unprotected: { endpoint: '/unprotected/git', method: 'GET', page: '/unprotected/git-repository' } },
-      { id: 'corporate-chatbot', name: 'Corporate Chatbot', desc: 'Anti Token-Drain DoS', icon: '🤖', 
+      { id: 'paper-portal', name: 'Papers Portal', desc: 'Anti-Scraping Mass Extraction', icon: '📄', 
+        protected: { endpoint: '/api/paper', method: 'GET', page: '/paper' },
+        unprotected: { endpoint: '/unprotected/paper', method: 'GET', page: '/unprotected/paper-portal' } },
+      { id: 'corporate-chatbot', name: 'Corporate Chatbot', desc: 'Anti Token-Drain DoS', icon: '🤖',  name: 'Corporate Chatbot', desc: 'Anti Token-Drain DoS', icon: '🤖', 
         protected: { endpoint: '/api/chat', method: 'POST', body: { message: 'Hello, how are you?' }, page: '/chat' },
         unprotected: { endpoint: '/unprotected/chat', method: 'POST', body: { message: 'Hello, how are you?' }, page: '/unprotected/chat-page' } }
     ];
