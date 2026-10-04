@@ -213,6 +213,37 @@ app.get('/unprotected/forum-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'social-forum.html'));
 });
 
+// Git Repository API endpoints
+app.get('/api/git', conditionalTollAI('git-repository'), (req, res) => {
+  res.json({
+    success: true,
+    scenario: 'git-repository',
+    data: {
+      repo: 'tollai-core',
+      files: 17,
+      commits: 3,
+      stars: 1242,
+      forks: 89
+    },
+    message: 'Git repository metadata accessed'
+  });
+});
+
+app.get('/unprotected/git', (req, res) => {
+  res.json({
+    success: true,
+    scenario: 'git-repository',
+    data: {
+      repo: 'tollai-core',
+      files: 17,
+      commits: 3,
+      stars: 1242,
+      forks: 89
+    },
+    message: 'Git repository metadata accessed (UNPROTECTED)'
+  });
+});
+
 app.get('/unprotected/git-repository', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'git-repository.html'));
 });
