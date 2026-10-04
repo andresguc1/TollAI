@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TechDaily — Technology & Innovation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400;1,700&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --newsprint: #fdfbf7; --ink: #1a1a1a; --ink-light: #333; --muted: #555;
+      --accent: #c00; --rule: #ddd; --rule-dark: #999;
+      --column-gap: 18px; --gutter: 18px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --newsprint: #1a1a1a; --ink: #f5f5f5; --ink-light: #ddd; --muted: #aaa; --rule: #333; --rule-dark: #555; }
+    }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+      background: var(--newsprint); color: var(--ink);
+      line-height: 1.55; -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    
+    /* ============ NAMEPLATE / MASTHEAD ============ */
+    .nameplate {
+      border-bottom: 3px double var(--ink);
+      padding: 20px 0 16px; text-align: center;
+      background: linear-gradient(180deg, var(--newsprint) 0%, #faf8f3 100%);
+      position: relative;
+    }
+    @media (prefers-color-scheme: dark) {
+      .nameplate { background: linear-gradient(180deg, #1a1a1a 0%, #141414 100%); }
+    }
+    .nameplate .edition { font-size: 0.7rem; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-family: 'Source Sans Pro', sans-serif; font-weight: 600; }
+    .nameplate h1 {
+      font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 900; letter-spacing: -0.02em;
+      font-style: normal; line-height: 0.95; margin-bottom: 4px;
+      font-family: 'Merriweather', serif;
+    }
+    .nameplate .tagline { font-size: 0.85rem; color: var(--muted); font-style: italic; margin-bottom: 10px; letter-spacing: 0.02em; }
+    .nameplate .meta { display: flex; justify-content: center; align-items: center; gap: 20px; font-size: 0.75rem; color: var(--muted); font-family: 'Source Sans Pro', sans-serif; }
+    .nameplate .meta span { display: flex; align-items: center; gap: 6px; }
+    .nameplate .meta .divider { width: 1px; height: 14px; background: var(--rule); }
+    
+    /* ============ NAVIGATION BAR ============ */
+    .nav-bar { display: flex; justify-content: center; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--rule); background: var(--newsprint); font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .nav-bar a { color: var(--ink-light); text-decoration: none; padding: 6px 14px; font-weight: 600; transition: color 0.15s; }
+    .nav-bar a:hover, .nav-bar a.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    
+    /* ============ MAIN LAYOUT ============ */
+    .page { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+    .main-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr; gap: var(--column-gap); padding-top: 24px; padding-bottom: 40px; }
+    
+    /* Column spans */
+    .col-1 { grid-column: span 1; } .col-2 { grid-column: span 2; }
+    .col-3 { grid-column: span 3; } .col-4 { grid-column: span 4; }
+    .col-5 { grid-column: span 5; } .col-6 { grid-column: span 6; }
+    
+    @media (max-width: 1100px) { .main-grid { grid-template-columns: repeat(3, 1fr); } .col-4, .col-5, .col-6 { grid-column: span 3; } .col-2, .col-3 { grid-column: span 2; } }
+    @media (max-width: 760px) { .main-grid { grid-template-columns: 1fr; } .col-1, .col-2, .col-3, .col-4, .col-5, .col-6 { grid-column: span 1; } }
+    
+    /* ============ ARTICLE COMPONENTS ============ */
+    .article { break-inside: avoid; }
+    
+    /* --- Lead Story (Main Feature) --- */
+    .lead-story { border-right: 1px solid var(--rule); padding-right: var(--gutter); }
+    .lead-story:last-child { border-right: none; }
+    .lead-story .kicker { font-family: 'Source Sans Pro', sans-serif; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 8px; display: block; }
+    .lead-story h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 900; line-height: 1.15; letter-spacing: -0.015em; margin-bottom: 10px; }
+    .lead-story h2 a { color: var(--ink); text-decoration: none; transition: color 0.15s; }
+    .lead-story h2 a:hover { color: var(--accent); }
+    .lead-story .deck { font-size: 1.05rem; font-weight: 300; line-height: 1.5; color: var(--ink-light); margin-bottom: 14px; font-style: italic; }
+    .lead-story .byline { font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .lead-story .byline .author { font-weight: 600; color: var(--ink); }
+    .lead-story .byline .time::before { content: "·"; margin-right: 10px; }
+    .lead-story .lead-image { width: 100%; aspect-ratio: 16/10; background: linear-gradient(135deg, #e8e4dc 0%, #ddd 100%); border: 1px solid var(--rule); margin-bottom: 16px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.8rem; overflow: hidden; }
+    .lead-story .lead-image img { width: 100%; height: 100%; object-fit: cover; }
+    .lead-story .excerpt { font-size: 0.95rem; line-height: 1.65; color: var(--ink-light); margin-bottom: 16px; }
+    .lead-story .rule { height: 1px; background: var(--rule); margin: 16px 0; }
+    
+    /* --- Standard Story --- */
+    .story { padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--rule); }
+    .story:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .story .kicker { font-family: 'Source Sans Pro', sans-serif; font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 6px; display: block; }
+    .story h3 { font-size: clamp(1rem, 1.5vw, 1.25rem); font-weight: 700; line-height: 1.25; margin-bottom: 8px; letter-spacing: -0.01em; }
+    .story h3 a { color: var(--ink); text-decoration: none; }
+    .story h3 a:hover { color: var(--accent); }
+    .story .deck { font-size: 0.85rem; line-height: 1.5; color: var(--ink-light); margin-bottom: 8px; font-weight: 300; }
+    .story .byline { font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .story .byline .author { font-weight: 600; color: var(--ink); }
+    .story .byline .time::before { content: "·"; margin-right: 8px; }
+    .story .thumb { width: 100%; aspect-ratio: 4/3; background: linear-gradient(135deg, #e8e4dc 0%, #ddd 100%); border: 1px solid var(--rule); margin: 10px 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.75rem; overflow: hidden; }
+    .story .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    
+    /* --- Column Story (compact) --- */
+    .col-story { margin-bottom: 18px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+    .col-story:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .col-story .kicker { font-family: 'Source Sans Pro', sans-serif; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); margin-bottom: 4px; display: block; }
+    .col-story h4 { font-size: 0.9rem; font-weight: 700; line-height: 1.3; margin-bottom: 6px; letter-spacing: -0.01em; }
+    .col-story h4 a { color: var(--ink); text-decoration: none; }
+    .col-story h4 a:hover { color: var(--accent); }
+    .col-story .byline { font-family: 'Source Sans Pro', sans-serif; font-size: 0.65rem; color: var(--muted); }
+    .col-story .byline .author { font-weight: 600; color: var(--ink); }
+    
+    /* --- Briefs / Wire Stories --- */
+    .briefs { border-top: 2px solid var(--ink); padding-top: 16px; margin-top: 8px; }
+    .briefs h4 { font-family: 'Source Sans Pro', sans-serif; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 12px; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+    .brief { font-size: 0.8rem; line-height: 1.5; padding: 8px 0; border-bottom: 1px dotted var(--rule); }
+    .brief:last-child { border-bottom: none; }
+    .brief strong { color: var(--ink); }
+    
+    /* ============ TOLLAI BANNER ============ */
+    .toll-banner {
+      grid-column: 1 / -1;
+      background: #fff; border: 2px solid var(--ink);
+      border-radius: 4px; padding: 14px 20px; margin-bottom: 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem;
+    }
+    .toll-banner .badge { background: var(--ink); color: var(--newsprint); padding: 4px 10px; border-radius: 3px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .toll-banner .badge.verified { background: #238636; }
+    .toll-banner-text { flex: 1; min-width: 280px; }
+    .toll-banner-text strong { display: block; margin-bottom: 2px; }
+    
+    /* ============ FOOTER ============ */
+    .footer { border-top: 3px double var(--ink); padding: 24px 0; margin-top: 24px; text-align: center; font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; color: var(--muted); }
+    .footer-links { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .footer-links a { color: var(--muted); text-decoration: none; font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em; }
+    .footer-links a:hover { color: var(--ink); }
+    
+    /* ============ PRINT STYLES ============ */
+    @media print {
+      .nav-bar, .toll-banner, .footer { display: none; }
+      .main-grid { gap: 12px; }
+      body { background: white; }
+    }
+    
+    /* ============ SVG PLACEHOLDER STYLES ============ */
+    .placeholder-svg { width: 100%; height: 100%; display: block; }
+  </style>
+</head>
+<body>
+  <!-- NAMEPLATE -->
+  <header class="nameplate">
+    <div class="edition">Vol. CXII  No. 284  •  Saturday, October 4, 2024</div>
+    <h1>TechDaily</h1>
+    <p class="tagline">All the Code That's Fit to Print</p>
+    <div class="meta">
+      <span>🌐 <strong>techdaily.io</strong></span>
+      <span class="divider"></span>
+      <span>📍 San Francisco · London · Singapore</span>
+      <span class="divider"></span>
+      <span>$2.50  |  24 Pages</span>
+    </div>
+  </header>
+
+  <!-- NAVIGATION -->
+  <nav class="nav-bar" role="navigation" aria-label="Sections">
+    <a href="#" class="active">Technology</a>
+    <a href="#">Artificial Intelligence</a>
+    <a href="#">Cybersecurity</a>
+    <a href="#">Quantum Computing</a>
+    <a href="#">Startups</a>
+    <a href="#">Policy</a>
+    <a href="#">Science</a>
+    <a href="#">Opinion</a>
+  </nav>
+
+  <!-- TOLLAI BANNER -->
+  <div class="toll-banner" role="status" aria-live="polite">
+    <div class="toll-banner-text">
+      <strong>🛡️ Protected by TollAI Cognitive Toll Protocol</strong>
+      <span>This edition verified for human readers — Autonomous agent access blocked at cognitive toll layer</span>
+    </div>
+    <span class="badge verified">✓ Human Verified</span>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="page" role="main">
+    <div class="main-grid">
+      
+      <!-- LEAD STORY - Spans 3 columns -->
+      <article class="article lead-story col-3">
+        <span class="kicker">Lead Story • Artificial Intelligence</span>
+        <h2><a href="#">AI Regulation Bill Passes Congress with Bipartisan Majority</a></h2>
+        <p class="deck">Landmark legislation establishes first federal framework for autonomous agent deployment, requiring cognitive verification protocols for systems operating above 10<sup>15</sup> FLOPS.</p>
+        <div class="byline">
+          <span class="author">By Sarah Chen</span>
+          <span class="time">2 hours ago</span>
+        </div>
+        <div class="lead-image" aria-label="Lead story illustration: AI Regulation">
+          <svg class="placeholder-svg" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Abstract illustration representing AI regulation - geometric shapes forming a shield around a neural network">
+            <defs>
+              <linearGradient id="leadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#238636"/><stop offset="100%" stop-color="#0969da"/>
+              </linearGradient>
+            </defs>
+            <rect width="800" height="500" fill="url(#leadGrad)"/>
+            <circle cx="400" cy="250" r="120" fill="none" stroke="white" stroke-width="2" stroke-opacity="0.3"/>
+            <circle cx="400" cy="250" r="80" fill="white" fill-opacity="0.1"/>
+            <text x="400" y="260" text-anchor="middle" fill="white" font-size="28" font-weight="700" opacity="0.9" font-family="Georgia, serif">AI Regulation</text>
+            <text x="400" y="295" text-anchor="middle" fill="white" font-size="14" opacity="0.7" font-family="Georgia, serif">Cognitive Toll Protocol</text>
+          </svg>
+        </div>
+        <p class="excerpt">WASHINGTON — The Artificial Intelligence Accountability Act passed the Senate 78-22 Thursday, marking the most significant federal intervention into AI development since the technology's commercial emergence. The bill mandates cognitive toll verification — a timing-based humanity proof — for any autonomous system exceeding the computational threshold, effectively creating a "speed limit" for machine intelligence.</p>
+        <p class="excerpt">"We're not regulating what AI can think," said Sen. Maria Cantwell (D-Wash.), chair of the Commerce Committee. "We're ensuring that when something thinks at machine speed, we know it's a machine." The legislation directly responds to the proliferation of local LLM deployments — models like Gemma 4 and Qwen 3.6 running on consumer hardware — which have enabled coordinated agent swarms capable of bypassing traditional CAPTCHA and rate-limiting defenses.</p>
+        <hr class="rule">
+        <p style="font-size: 0.9rem; color: var(--ink-light); line-height: 1.6;">The bill now heads to the president's desk, where a signature is expected within days. Industry groups have already signaled legal challenges, arguing the 1,500-millisecond cognitive threshold arbitrarily discriminates against optimized inference pipelines.</p>
+        
+      </article>
+
+      <!-- SECONDARY LEAD - Spans 3 columns -->
+      <article class="article lead-story col-3">
+        <span class="kicker">Lead Story • Cybersecurity</span>
+        <h2><a href="#">Cognitive Toll Protocols Adopted by Fortune 500 Firms</a></h2>
+        <p class="deck">Major enterprises deploy proof-of-humanity verification to combat autonomous agent scraping and synthetic content generation at scale.</p>
+        <div class="byline">
+          <span class="author">By Marcus Webb</span>
+          <span class="time">4 hours ago</span>
+        </div>
+        <div class="lead-image" aria-label="Cybersecurity adoption illustration">
+          <svg class="placeholder-svg" viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Abstract shield with binary code representing cognitive toll protection">
+            <defs>
+              <linearGradient id="secGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#da3633"/><stop offset="100%" stop-color="#d29922"/>
+              </linearGradient>
+            </defs>
+            <rect width="800" height="500" fill="url(#secGrad)"/>
+            <rect x="250" y="150" width="300" height="200" rx="20" fill="none" stroke="white" stroke-width="3" stroke-opacity="0.4"/>
+            <text x="400" y="270" text-anchor="middle" fill="white" font-size="32" font-weight="900" opacity="0.9" font-family="Georgia, serif">TOLLAI</text>
+            <text x="400" y="310" text-anchor="middle" fill="white" font-size="16" opacity="0.8" font-family="Georgia, serif">1500ms Threshold</text>
+          </svg>
+        </div>
+        <p class="excerpt">SAN FRANCISCO — Seventeen of the top fifty U.S. companies by revenue have implemented cognitive toll middleware across public-facing APIs in the past quarter, according to a survey by the Information Technology Industry Council. The protocol, which measures response latency to dynamic reasoning challenges, has blocked an estimated 2.3 million autonomous agent requests since January.</p>
+        <p class="excerpt">"Traditional bot detection looks at behavior patterns," said Dr. Elena Kowalski, principal researcher at MIT's Computer Science and Artificial Intelligence Laboratory. "Cognitive toll looks at physics. Humans cannot process natural language and produce a correct response in under 1,500 milliseconds. Machines can. That gap is structural."</p>
+        <hr class="rule">
+        <p style="font-size: 0.9rem; color: var(--ink-light); line-height: 1.6;">The adoption surge follows a 340% increase in autonomous agent attacks documented in Q3 2024, with botnets leveraging quantized local LLMs to bypass cloud-based detection. Analysts project cognitive toll will become standard infrastructure by 2026.</p>
+        
+      </article>
+
+      <!-- COLUMN 1 - Standard Stories -->
+      <div class="article col-2">
+        <article class="story">
+          <span class="kicker">Quantum Computing</span>
+          <h3><a href="#">IBM Condor Reaches 1,121 Qubits, Crossing Milestone</a></h3>
+          <p class="deck">New processor achieves improved coherence times, accelerating timeline for quantum advantage in optimization problems.</p>
+          <div class="byline"><span class="author">Lisa Rodriguez</span><span class="time">1 day ago</span></div>
+          <div class="thumb" aria-label="Quantum processor illustration">
+            <svg class="placeholder-svg" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#f78166"/><text x="200" y="150" text-anchor="middle" fill="white" font-size="18" opacity="0.3" font-family="Georgia, serif">IBM Condor</text></svg>
+          </div>
+        </article>
+        <article class="story">
+          <span class="kicker">Policy</span>
+          <h3><a href="#">EU AI Act Enforcement Begins; Fines Up to 7% Revenue</a></h3>
+          <p class="deck">First enforcement actions target non-compliant foundation model providers. U.S. firms scramble to align documentation.</p>
+          <div class="byline"><span class="author">James Ngo</span><span class="time">6 hours ago</span></div>
+        </article>
+        <article class="story">
+          <span class="kicker">Startups</span>
+          <h3><a href="#">Anthropic Raises $4B at $40B Valuation from Amazon</a></h3>
+          <p class="deck">Strategic partnership deepens as Claude models become default on AWS Bedrock. Google matches with $2B follow-on.</p>
+          <div class="byline"><span class="author">Alice Liu</span><span class="time">3 hours ago</span></div>
+        </article>
+      </div>
+
+      <!-- COLUMN 2 - Standard Stories -->
+      <div class="article col-2">
+        <article class="story">
+          <span class="kicker">Security Research</span>
+          <h3><a href="#">Speed-Based Detection: Why Timing Beats CAPTCHAs</a></h3>
+          <p class="deck">New research shows temporal analysis of challenge responses achieves 99.7% accuracy distinguishing human from automated interaction.</p>
+          <div class="byline"><span class="author">Elena Kowalski</span><span class="time">8 hours ago</span></div>
+          <div class="thumb" aria-label="Timing analysis chart">
+            <svg class="placeholder-svg" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#8957e5"/><text x="200" y="150" text-anchor="middle" fill="white" font-size="18" opacity="0.3" font-family="Georgia, serif">99.7% Accuracy</text></svg>
+          </div>
+        </article>
+        <article class="story">
+          <span class="kicker">Threat Intelligence</span>
+          <h3><a href="#">Autonomous Agent Attacks Up 340% in Q3 2024</a></h3>
+          <p class="deck">Botnets leveraging local LLMs bypass traditional defenses. Cognitive toll protocols emerge as primary countermeasure.</p>
+          <div class="byline"><span class="author">Raj Patel</span><span class="time">12 hours ago</span></div>
+        </article>
+        <article class="story">
+          <span class="kicker">Developers</span>
+          <h3><a href="#">Building Resilient Systems Against Agent Swarms</a></h3>
+          <p class="deck">Architecture patterns for rate limiting, challenge-response, and behavioral analysis to defend API endpoints from coordinated agents.</p>
+          <div class="byline"><span class="author">David Thompson</span><span class="time">1 day ago</span></div>
+        </article>
+      </div>
+
+      <!-- COLUMN 3 - Compact Stories -->
+      <div class="article col-2">
+        <article class="col-story">
+          <span class="kicker">Science</span>
+          <h4><a href="#">Photonic Quantum Chips Operate at Room Temperature</a></h4>
+          <div class="byline"><span class="author">Stefan Olsen</span></div>
+        </article>
+        <article class="col-story">
+          <span class="kicker">Cryptography</span>
+          <h4><a href="#">Post-Quantum TLS Adoption Reaches 40% of Top Million Sites</a></h4>
+          <div class="byline"><span class="author">Priya Kumar</span></div>
+        </article>
+        <article class="col-story">
+          <span class="kicker">AI Safety</span>
+          <h4><a href="#">Human Cognitive Floor: 1500ms Threshold Validated in MIT Study</a></h4>
+          <div class="byline"><span class="author">Elena Kowalski</span></div>
+        </article>
+        <article class="col-story">
+          <span class="kicker">Hardware</span>
+          <h4><a href="#">Nvidia Blackwell GPUs Ship to Hyperscalers Ahead of Schedule</a></h4>
+          <div class="byline"><span class="author">Marcus Webb</span></div>
+        </article>
+        <article class="col-story">
+          <span class="kicker">Open Source</span>
+          <h4><a href="#">Linux Kernel 6.12 Adds Native Rust Support for Drivers</a></h4>
+          <div class="byline"><span class="author">James Ngo</span></div>
+        </article>
+        <article class="col-story">
+          <span class="kicker">Privacy</span>
+          <h4><a href="#">Signal Protocol 2.0 Introduces Post-Quantum Key Exchange</a></h4>
+          <div class="byline"><span class="author">Alice Liu</span></div>
+        </article>
+        
+        <!-- Briefs Section -->
+        <div class="briefs">
+          <h4>Briefs</h4>
+          <div class="brief"><strong>Microsoft</strong> announces Phi-4 small language model with 14B parameters, claims GPT-3.5 parity on reasoning benchmarks.</div>
+          <div class="brief"><strong>Google DeepMind</strong> publishes AlphaFold 3 weights for non-commercial use; protein structure prediction now openly accessible.</div>
+          <div class="brief"><strong>TSMC</strong> breaks ground on Arizona fab phase 2; 3nm production targeted for 2027, $40B total investment.</div>
+          <div class="brief"><strong>OpenAI</strong> restructures as public benefit corporation; board gains veto power over AGI deployment decisions.</div>
+          <div class="brief"><strong>Meta</strong> releases Llama 4 400B parameter model; first open-weight model with native multimodal reasoning.</div>
+        </div>
+      </div>
+
+      <!-- SIDEBAR / OPINION COLUMN -->
+      <aside class="article col-2" style="border-left: 1px solid var(--rule); padding-left: var(--gutter);">
+        <div style="font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid var(--ink);">Opinion</div>
+        
+        <article class="col-story" style="border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 18px;">
+          <h4 style="font-size: 1.1rem; font-weight: 700; line-height: 1.3; margin-bottom: 8px;"><a href="#" style="color: var(--accent);">The Machine Speed Limit</a></h4>
+          <div class="byline"><span class="author">By The Editorial Board</span></div>
+          <p style="font-size: 0.85rem; line-height: 1.6; color: var(--ink-light); margin-top: 8px;">The cognitive toll is not a CAPTCHA. It is a speed limit. And like all speed limits, it exists not because speed is evil, but because the physics of the road — in this case, the biology of human cognition — demands it.</p>
+        </article>
+        
+        <article class="col-story">
+          <h4 style="font-size: 1rem; font-weight: 700; line-height: 1.3; margin-bottom: 6px;"><a href="#">Why We Must Regulate Inference, Not Training</a></h4>
+          <div class="byline"><span class="author">Dr. Elena Kowalski</span></div>
+          <p style="font-size: 0.85rem; line-height: 1.6; color: var(--ink-light); margin-top: 6px;">The compute threshold in the new bill targets deployment, not development. That distinction matters.</p>
+        </article>
+        
+        <article class="col-story">
+          <h4 style="font-size: 1rem; font-weight: 700; line-height: 1.3; margin-bottom: 6px;"><a href="#">The End of Anonymous Computation</a></h4>
+          <div class="byline"><span class="author">Marcus Webb</span></div>
+          <p style="font-size: 0.85rem; line-height: 1.6; color: var(--ink-light); margin-top: 6px;">When every API call carries a cognitive fingerprint, the internet changes fundamentally.</p>
+        </article>
+
+        <!-- Market Data Box -->
+        <div style="background: var(--newsprint); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; margin-top: 24px; font-family: 'Source Sans Pro', sans-serif;">
+          <h4 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 12px; border-bottom: 1px solid var(--rule); padding-bottom: 8px;">Market Movers</h4>
+          <table style="width: 100%; font-size: 0.75rem; border-collapse: collapse;">
+            <thead><tr style="border-bottom: 1px solid var(--rule);"><th style="text-align: left; padding: 4px 0; color: var(--muted);">Symbol</th><th style="text-align: right; padding: 4px 0; color: var(--muted);">Price</th><th style="text-align: right; padding: 4px 0; color: var(--muted);">Change</th></tr></thead>
+            <tbody>
+              <tr style="border-bottom: 1px dotted var(--rule);"><td>NVDA</td><td style="text-align: right;">$142.31</td><td style="text-align: right; color: #238636;">+2.4%</td></tr>
+              <tr style="border-bottom: 1px dotted var(--rule);"><td>MSFT</td><td style="text-align: right;">$421.50</td><td style="text-align: right; color: #238636;">+1.1%</td></tr>
+              <tr style="border-bottom: 1px dotted var(--rule);"><td>GOOGL</td><td style="text-align: right;">$168.92</td><td style="text-align: right; color: #da3633;">−0.8%</td></tr>
+              <tr style="border-bottom: 1px dotted var(--rule);"><td>AMZN</td><td style="text-align: right;">$187.45</td><td style="text-align: right; color: #238636;">+1.9%</td></tr>
+              <tr><td>IBM</td><td style="text-align: right;">$218.67</td><td style="text-align: right; color: #238636;">+3.2%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer-links">
+      <a href="#">About</a>
+      <a href="#">Editorial Standards</a>
+      <a href="#">Privacy Policy</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Contact</a>
+      <a href="#">Subscribe</a>
+      <a href="#">RSS</a>
+    </div>
+    <p>© 2024 TechDaily. All rights reserved. Protected by TollAI Cognitive Toll Protocol.</p>
+    <p style="margin-top: 4px; font-size: 0.65rem;">This demonstration content is part of the TollAI PoC — Cognitive Toll Protocol vs Autonomous AI Agents</p>
+  </footer>
+</body>
+</html>

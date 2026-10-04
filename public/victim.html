@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-CAPTCHA PoC - Victim Portal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d1117;
+      --bg-elevated: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --primary: #238636;
+      --primary-hover: #2ea043;
+      --danger: #da3633;
+      --danger-hover: #f85149;
+      --warning: #d29922;
+      --info: #58a6ff;
+      --code-bg: #161b22;
+    }
+    body {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    
+    header {
+      text-align: center;
+      padding: 32px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 32px;
+    }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: var(--text-muted); font-size: 1rem; }
+    .badge {
+      display: inline-block;
+      background: var(--warning);
+      color: #0d1117;
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-top: 12px;
+    }
+    
+    .card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .card h2::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: var(--primary);
+      border-radius: 2px;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { background: #2d333b; color: var(--text-muted); cursor: not-allowed; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: var(--danger-hover); }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover { background: #3d444d; }
+    .btn-group { display: flex; gap: 12px; flex-wrap: wrap; }
+    
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .status-secure { background: rgba(35, 134, 54, 0.2); color: var(--primary); }
+    .status-challenge { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .status-blocked { background: rgba(218, 54, 51, 0.2); color: var(--danger); }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: currentColor;
+    }
+    .status-dot.pulse { animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    
+    .challenge-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+    .challenge-modal.active { display: flex; }
+    .challenge-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+    }
+    .challenge-icon { font-size: 3rem; margin-bottom: 16px; }
+    .challenge-text {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: var(--code-bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-family: inherit;
+    }
+    .challenge-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1rem;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .challenge-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(35, 134, 54, 0.2); }
+    .challenge-timer {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .challenge-timer .highlight { color: var(--warning); font-weight: 700; }
+    
+    .log-panel {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      line-height: 1.6;
+    }
+    .log-entry { margin: 4px 0; display: flex; gap: 8px; }
+    .log-time { color: var(--text-muted); white-space: nowrap; }
+    .log-type-info { color: var(--text-muted); }
+    .log-type-success { color: var(--primary); }
+    .log-type-error { color: var(--danger); }
+    .log-type-warning { color: var(--warning); }
+    
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .endpoint-card {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .endpoint-card code {
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    .endpoint-card .method {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .method-get { background: rgba(35, 134, 54, 0.2); color: var(--primary); }
+    .method-post { background: rgba(88, 166, 255, 0.2); color: var(--info); }
+    
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border);
+      margin-top: 32px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛡️ AI-CAPTCHA Victim Portal</h1>
+      <p class="subtitle">Cognitive Toll Protocol — Protected Resource Demo</p>
+      <span class="badge" id="securityStatus">
+        <span class="status-dot pulse"></span> AI-GUARD ACTIVE
+      </span>
+    </header>
+
+    <div class="card">
+      <h2>Security Status</h2>
+      <div id="statusDisplay" class="status-indicator status-secure">
+        <span class="status-dot"></span>
+        <span id="statusText">SECURE - No active challenges</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Protected Actions</h2>
+        <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.9rem;">
+          These actions require cognitive verification. AI agents will be blocked by response time analysis.
+        </p>
+        <div class="btn-group">
+          <button class="btn btn-primary" id="btnSensitive" onclick="requestAccess('sensitive')">
+            🔐 Access Sensitive Data
+          </button>
+          <button class="btn btn-primary" id="btnAdmin" onclick="requestAccess('admin')">
+            ⚙️ Open Admin Panel
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Public Endpoint</h2>
+        <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.9rem;">
+          No cognitive verification required.
+        </p>
+        <button class="btn btn-secondary" onclick="requestPublic()">
+          📄 Fetch Public Data
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>API Endpoints</h2>
+      <div class="grid">
+        <div class="endpoint-card">
+          <span class="method method-get">GET</span>
+          <code>/api/v1/public</code>
+          <p style="margin-top: 8px; color: var(--text-muted); font-size: 0.8rem;">Public - No protection</p>
+        </div>
+        <div class="endpoint-card">
+          <span class="method method-get">GET</span>
+          <code>/api/v1/sensitive-data</code>
+          <p style="margin-top: 8px; color: var(--text-muted); font-size: 0.8rem;">Protected - AI-GUARD</p>
+        </div>
+        <div class="endpoint-card">
+          <span class="method method-get">GET</span>
+          <code>/api/v1/admin-panel</code>
+          <p style="margin-top: 8px; color: var(--text-muted); font-size: 0.8rem;">Protected - AI-GUARD</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Security Log</h2>
+      <div class="log-panel" id="logPanel">
+        <div class="log-entry"><span class="log-time">[System]</span> <span class="log-type-info">AI-CAPTCHA Victim Portal initialized</span></div>
+        <div class="log-entry"><span class="log-time">[System]</span> <span class="log-type-info">AI-GUARD middleware active (threshold: 2000ms)</span></div>
+      </div>
+    </div>
+
+    <footer>
+      AI-CAPTCHA PoC — Cognitive Toll Protocol vs Autonomous AI Agents
+    </footer>
+  </div>
+
+  <!-- Challenge Modal -->
+  <div class="challenge-modal" id="challengeModal">
+    <div class="challenge-box">
+      <div class="challenge-icon" id="challengeIcon">🧠</div>
+      <h3 style="margin-bottom: 8px;">Cognitive Verification Required</h3>
+      <p style="color: var(--text-muted); margin-bottom: 20px; font-size: 0.9rem;">
+        AI-GUARD has detected an access request to a protected resource.<br>
+        Please solve the challenge to prove human cognition.
+      </p>
+      <div class="challenge-text" id="challengeText">Loading challenge...</div>
+      <input type="text" class="challenge-input" id="challengeInput" placeholder="Enter your answer" autocomplete="off" />
+      <div class="btn-group" style="justify-content: center;">
+        <button class="btn btn-primary" id="btnSubmitChallenge" onclick="submitChallenge()">Submit Answer</button>
+        <button class="btn btn-secondary" onclick="closeChallenge()">Cancel</button>
+      </div>
+      <div class="challenge-timer">
+        Response time: <span class="highlight" id="timerDisplay">0</span>ms (minimum: <span class="highlight">2000</span>ms)
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    let currentChallenge = null;
+    let challengeStartTime = 0;
+    let timerInterval = null;
+
+    function addLog(message, type = 'info') {
+      const panel = document.getElementById('logPanel');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = `log-entry`;
+      div.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-type-${type}">${escapeHtml(message)}</span>`;
+      panel.appendChild(div);
+      panel.scrollTop = panel.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function setStatus(status, text) {
+      const display = document.getElementById('statusDisplay');
+      const statusText = document.getElementById('statusText');
+      display.className = 'status-indicator status-' + status;
+      statusText.textContent = text;
+    }
+
+    async function requestPublic() {
+      addLog('Requesting public endpoint...', 'info');
+      try {
+        const res = await fetch('/api/v1/public');
+        const data = await res.json();
+        addLog(`Public access granted: ${data.message}`, 'success');
+      } catch (e) {
+        addLog(`Error: ${e.message}`, 'error');
+      }
+    }
+
+    async function requestAccess(type) {
+      const endpoint = type === 'sensitive' ? '/api/v1/sensitive-data' : '/api/v1/admin-panel';
+      const btnId = type === 'sensitive' ? 'btnSensitive' : 'btnAdmin';
+      const btn = document.getElementById(btnId);
+      
+      btn.disabled = true;
+      addLog(`Requesting protected resource: ${endpoint}`, 'info');
+      
+      try {
+        const res = await fetch(endpoint);
+        
+        if (res.status === 433) {
+          const data = await res.json();
+          showChallenge(data, endpoint);
+        } else if (res.ok) {
+          const data = await res.json();
+          addLog(`Access granted: ${data.message}`, 'success');
+          setStatus('secure', 'SECURE - Access granted');
+        } else {
+          const data = await res.json();
+          addLog(`Access denied (${res.status}): ${data.message}`, 'error');
+          if (data.code === 'AI_AGENT_DETECTED') {
+            setStatus('blocked', `BLOCKED - AI Agent Detected (${data.response_time_ms}ms)`);
+          }
+        }
+      } catch (e) {
+        addLog(`Network error: ${e.message}`, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function showChallenge(data, endpoint) {
+      currentChallenge = {
+        challengeId: data.challenge_id,
+        endpoint: endpoint,
+        timestamp: data.timestamp
+      };
+      challengeStartTime = Date.now();
+      
+      document.getElementById('challengeText').textContent = data.challenge;
+      document.getElementById('challengeInput').value = '';
+      document.getElementById('challengeModal').classList.add('active');
+      document.getElementById('challengeInput').focus();
+      
+      setStatus('challenge', `CHALLENGE ACTIVE - ${data.challenge_type.toUpperCase()}`);
+      addLog(`Challenge received (${data.challenge_type}): ${data.challenge}`, 'warning');
+      
+      // Start timer
+      timerInterval = setInterval(() => {
+        const elapsed = Date.now() - challengeStartTime;
+        document.getElementById('timerDisplay').textContent = elapsed;
+      }, 50);
+    }
+
+    function closeChallenge() {
+      document.getElementById('challengeModal').classList.remove('active');
+      currentChallenge = null;
+      clearInterval(timerInterval);
+      setStatus('secure', 'SECURE - Challenge cancelled');
+      addLog('Challenge cancelled by user', 'info');
+    }
+
+    async function submitChallenge() {
+      const answer = document.getElementById('challengeInput').value.trim();
+      if (!answer) {
+        addLog('Please enter an answer', 'warning');
+        return;
+      }
+      
+      const responseTime = Date.now() - challengeStartTime;
+      document.getElementById('timerDisplay').textContent = responseTime;
+      clearInterval(timerInterval);
+      
+      addLog(`Submitting answer: "${answer}" (took ${responseTime}ms)`, 'info');
+      
+      try {
+        const res = await fetch(currentChallenge.endpoint, {
+          headers: {
+            'x-ai-proof': currentChallenge.challengeId,
+            'x-challenge-response': answer
+          }
+        });
+        
+        document.getElementById('challengeModal').classList.remove('active');
+        
+        if (res.ok) {
+          const data = await res.json();
+          addLog(`Access granted! Verified in ${data.challenge_metadata?.response_time || responseTime}ms`, 'success');
+          setStatus('secure', 'SECURE - Human verified');
+        } else {
+          const data = await res.json();
+          addLog(`Access denied (${res.status}): ${data.message}`, 'error');
+          if (data.code === 'AI_AGENT_DETECTED') {
+            setStatus('blocked', `BLOCKED - AI Agent Detected (${data.response_time_ms}ms)`);
+            addLog(`🚨 AI AGENT DETECTED: Response time ${data.response_time_ms}ms < 2000ms threshold`, 'error');
+          } else if (data.code === 'WRONG_ANSWER') {
+            setStatus('secure', 'SECURE - Wrong answer, try again');
+          }
+        }
+      } catch (e) {
+        addLog(`Error: ${e.message}`, 'error');
+      }
+      
+      currentChallenge = null;
+    }
+
+    // Enter key to submit
+    document.getElementById('challengeInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitChallenge();
+    });
+
+    // Close modal on backdrop click
+    document.getElementById('challengeModal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeChallenge();
+    });
+  </script>
+</body>
+</html>
