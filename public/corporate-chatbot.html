@@ -106,6 +106,41 @@
     <p>© 2024 EnterpriseAI. All rights reserved. Protected by TollAI Cognitive Toll Protocol.</p>
   </footer>
   <script>
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+      addMessage(text, true);
+      input.value = '';
+      const messages = document.getElementById('messages');
+      const loading = document.createElement('div');
+      loading.className = 'message assistant';
+      loading.innerHTML = `
+        <div class="avatar">AI</div>
+        <div class="bubble">...</div>
+      `;
+      messages.appendChild(loading);
+      messages.scrollTop = messages.scrollHeight;
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        messages.removeChild(loading);
+        if (data.error && data.challenge) {
+          addMessage(`Challenge required: ${data.challenge} (${data.challenge_id})`, false);
+        } else if (data.response) {
+          addMessage(data.response, false);
+        } else {
+          addMessage('Error: Unable to get response', false);
+        }
+      } catch (err) {
+        messages.removeChild(loading);
+        addMessage('Network error', false);
+      }
+    }
     function addMessage(content, isUser) {
       const messages = document.getElementById('messages');
       const msg = document.createElement('div');
@@ -116,16 +151,6 @@
       `;
       messages.appendChild(msg);
       messages.scrollTop = messages.scrollHeight;
-    }
-    function sendMessage() {
-      const input = document.getElementById('messageInput');
-      const text = input.value.trim();
-      if (!text) return;
-      addMessage(text, true);
-      input.value = '';
-      setTimeout(() => {
-        addMessage(`I understand your question about "${text}". Let me help with that. This is a demo response from the protected chatbot endpoint.`, false);
-      }, 500);
     }
     document.getElementById('messageInput').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMessage();
