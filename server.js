@@ -369,6 +369,12 @@ app.get('/unprotected/paper/page/:page', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'paper-portal', bypassed: true }
   });
 });
+app.get('/api/paper/download', conditionalTollAI('paper-portal'), (req, res) => {
+  res.download(path.join(__dirname, 'public', 'papers', 'haltest-abstract.pdf'));
+});
+app.get('/unprotected/paper/download', (req, res) => {
+  res.download(path.join(__dirname, 'public', 'papers', 'haltest-abstract.pdf'));
+});
 
 
 // Root - Dashboard
