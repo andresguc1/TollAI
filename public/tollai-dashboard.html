@@ -237,8 +237,8 @@ const SCENARIOS = [
         protected: { endpoint: '/api/social/post', method: 'POST', body: { content: 'Test post from human', author: 'TestUser' }, page: '/forum' },
         unprotected: { endpoint: '/unprotected/social/post', method: 'POST', body: { content: 'Test post from human', author: 'TestUser' }, page: '/unprotected/forum-page' } },
       { id: 'git-repository', name: 'Git Repository', desc: 'IP / Source Code Protection', icon: '💻', 
-        protected: { endpoint: '/api/git/source-code', method: 'GET' },
-        unprotected: { endpoint: '/unprotected/git/source-code', method: 'GET' } },
+        protected: { endpoint: '/api/git', method: 'GET', page: '/git' },
+        unprotected: { endpoint: '/unprotected/git-repository', method: 'GET' } },
       { id: 'corporate-chatbot', name: 'Corporate Chatbot', desc: 'Anti Token-Drain DoS', icon: '🤖', 
         protected: { endpoint: '/api/chat', method: 'POST', body: { message: 'Hello, how are you?' } },
         unprotected: { endpoint: '/unprotected/chat', method: 'POST', body: { message: 'Hello, how are you?' } } }

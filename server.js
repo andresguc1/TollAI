@@ -135,6 +135,10 @@ app.get('/forum', conditionalTollAI('social-forum'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'social-forum.html'));
 });
 
+app.get('/git', conditionalTollAI('git-repository'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'git-repository.html'));
+});
+
 // ===== UNPROTECTED DIRECT ACCESS ENDPOINTS (no TollAI) =====
 // These allow direct access when TollAI is disabled
 app.get('/unprotected/news', (req, res) => {
@@ -201,8 +205,16 @@ app.get('/unprotected/news-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'news-portal.html'));
 });
 
+app.get('/unprotected/news-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'news-portal.html'));
+});
+
 app.get('/unprotected/forum-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'social-forum.html'));
+});
+
+app.get('/unprotected/git-repository', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'git-repository.html'));
 });
 
 // Root - Dashboard
@@ -242,9 +254,11 @@ const server = app.listen(PORT, () => {
   console.log('📄 Protected Pages:');
   console.log('   GET  /news                        → News Portal (TollAI)');
   console.log('   GET  /forum                       → Social Forum (TollAI)');
+  console.log('   GET  /git                         → Git Repository (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
+  console.log('   GET  /unprotected/git-repository  → Git Repository (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');

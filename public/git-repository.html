@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TollGit — Source Code Repository</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400;1,700&family=Source+Sans+Pro:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --ink-light: #333;
+      --muted: #6a737d; --accent: #0969da; --accent-hover: #0860ca;
+      --success: #238636; --warning: #d29922; --danger: #da3633;
+      --code-bg: #f6f8fa; --border: #d0d7de; --rule: #ddd; --rule-dark: #999;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --ink-light: #b1bac4;
+        --muted: #8b949e; --accent: #58a6ff; --accent-hover: #79b8ff; --border: #30363d;
+        --code-bg: #161b22; --rule: #333; --rule-dark: #555; }
+    }
+    html { font-size: 16px; }
+    body {
+      font-family: 'Merriweather', Georgia, 'Times New Roman', serif;
+      background: var(--bg); color: var(--ink);
+      line-height: 1.55; -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+    .sans { font-family: 'Source Sans Pro', -apple-system, sans-serif; }
+    
+    /* ============ HEADER / MASTHEAD ============ */
+    .forum-header {
+      background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-top {
+      max-width: 1200px; margin: 0 auto; padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .forum-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 1rem; }
+    .forum-brand h1 { font-size: 1.25rem; font-weight: 900; letter-spacing: -0.01em; font-family: 'Merriweather', serif; }
+    .forum-brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; letter-spacing: 0.05em; }
+    .header-search { flex: 1; max-width: 480px; position: relative; }
+    .header-search input { width: 100%; padding: 10px 16px 10px 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 0.9rem; font-family: inherit; }
+    .header-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+    .header-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .btn { padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); border-color: var(--ink-light); }
+    
+    .header-nav {
+      max-width: 1200x; margin: 0 auto; padding: 0 20px 12px;
+      display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--border); overflow-x: auto;
+    }
+    .header-nav a { padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.8rem; color: var(--muted); white-space: nowrap; transition: all 0.15s; font-family: 'Source Sans Pro', sans-serif; }
+    .header-nav a:hover, .header-nav a.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    
+    /* ============ MAIN LAYOUT ============ */
+    .forum-main { max-width: 1200px; margin: 0 auto; padding: 24px 20px 40px; display: grid; grid-template-columns: 280px 1fr; gap: 32px; }
+    @media (max-width: 900px) { .forum-main { grid-template-columns: 1fr; } }
+    
+    /* ============ SIDEBAR ============ */
+    .sidebar { position: sticky; top: 100px; height: fit-content; }
+    .sidebar-section { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .sidebar-title { font-family: 'Source Sans Pro', sans-serif; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .sidebar-title::before { content: ""; width: 8px; height: 8px; background: var(--accent); border-radius: 2px; }
+    
+    .repo-list { list-style: none; }
+    .repo-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .repo-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .repo-link { display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: var(--ink); font-size: 0.85rem; padding: 4px 0; transition: color 0.15s; }
+    .repo-link:hover { color: var(--accent); }
+    .repo-link .name { font-weight: 600; color: var(--ink); }
+    .repo-link .desc { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+    .repo-link .stars { color: var(--warning); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+    
+    .stats-box { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .stat-item { text-align: center; padding: 12px; background: var(--code-bg); border-radius: 8px; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: 'JetBrains Mono', monospace; line-height: 1; }
+    .stat-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; font-family: 'Source Sans Pro', sans-serif; }
+    
+    /* ============ CONTENT AREA ============ */
+    .content-area { min-width: 0; }
+    
+    .breadcrumb { font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; color: var(--muted); margin-bottom: 20px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .breadcrumb a { color: var(--muted); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .current { color: var(--ink); font-weight: 600; }
+    
+    /* File List */
+    .file-list { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .file-header { display: grid; grid-template-columns: 4fr 1fr 1fr 1fr; padding: 14px 20px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border); font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    @media (max-width: 600px) { .file-header { display: none; } }
+    
+    .file-row { display: grid; grid-template-columns: 4fr 1fr 1fr 1fr; padding: 16px 20px; border-bottom: 1px solid var(--border); transition: background 0.15s; align-items: start; gap: 16px; }
+    .file-row:hover { background: rgba(9,105,218,0.03); }
+    .file-row:last-child { border-bottom: none; padding-bottom: 16px; }
+    @media (max-width: 600px) {
+      .file-row { grid-template-columns: 1fr; gap: 8px; }
+    }
+    
+    .file-main { min-width: 0; }
+    .file-ext { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--muted); }
+    .file-ext. code { color: var(--accent); }
+    .file-status { display: flex; align-items: center; gap: 6px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.green { background: var(--success); }
+    .status-dot.yellow { background: var(--warning); }
+    .status-dot.red { background: var(--danger); }
+    .file-committer { display: flex; align-items: center; gap: 6px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; color: var(--muted); }
+    .committer-avatar { width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #8957e5); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600; font-size: 0.65rem; }
+    .committer-name { font-weight: 600; color: var(--ink); }
+    .committer-time { color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; }
+    
+    /* Pinned Repo */
+    .repo.pinned { border-left: 3px solid var(--warning); }
+    
+    /* Empty State */
+    .empty-state { padding: 60px 20px; text-align: center; color: var(--muted); }
+    .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-state h3 { font-size: 1.1rem; margin-bottom: 8px; color: var(--ink); }
+    .empty-state p { font-size: 0.9rem; max-width: 320px; margin: 0 auto; }
+    
+    /* ============ TOLLAI BANNER ============ */
+    .toll-banner {
+      grid-column: 1 / -1;
+      background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px;
+      padding: 14px 20px; margin-bottom: 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+      font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem;
+    }
+    .toll-banner .badge { background: var(--ink); color: var(--bg); padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .toll-banner .badge.verified { background: var(--success); }
+    .toll-banner-text { flex: 1; min-width: 280px; }
+    .toll-banner-text strong { display: block; margin-bottom: 2px; }
+    
+    /* ============ CREATE REPO BAR ============ */
+    .create-repo-bar {
+      background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;
+    }
+    .create-repo-bar .avatar { width: 36px; height: 36px; }
+    .create-repo-bar form { flex: 1; display: flex; gap: 10px; }
+    .create-repo-bar input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); font-family: inherit; font-size: 0.9rem; }
+    .create-repo-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,0.15); }
+    
+    /* ============ FOOTER ============ */
+    .footer { border-top: 1px solid var(--border); padding: 24px 0; text-align: center; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; color: var(--muted); }
+    .footer-links { display: flex; justify-content: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .footer-links a { color: var(--muted); text-decoration: none; font-weight: 600; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.05em; }
+    .footer-links a:hover { color: var(--ink); }
+    
+    /* ============ PRINT ============ */
+    @media print { .forum-header, .sidebar, .create-repo-bar, .footer { display: none; } .forum-main { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- FORUM HEADER -->
+  <header class="forum-header" role="banner">
+    <div class="header-top">
+      <a href="/" class="forum-brand">
+        <span class="brand-icon">TG</span>
+        <div>
+          <h1>TollGit</h1>
+          <div class="tagline">Source code repository — Protected by cognitive toll</div>
+        </div>
+      </a>
+      <div class="header-search" role="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="search" placeholder="Search repositories, files, code..." aria-label="Search repositories">
+      </div>
+      <div class="header-actions">
+        <a href="#" class="btn btn-ghost">Sync</a>
+        <a href="#" class="btn btn-primary">New Repository</a>
+      </div>
+    </nav>
+  </header>
+
+  <!-- TOLLAI BANNER -->
+  <div class="toll-banner" role="status" aria-live="polite">
+    <div class="toll-banner-text">
+      <strong>🛡️ Protected by TollAI Cognitive Toll Protocol</strong>
+      <span>This repository verified for human authors — Autonomous agent push blocked at cognitive toll layer</span>
+    </div>
+    <span class="badge verified">✓ Human Verified</span>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <main class="forum-main" role="main">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" aria-label="Repository navigation">
+      <div class="sidebar-section">
+        <div class="sidebar-title">Repositories</div>
+        <ul class="repo-list" role="list">
+          <li class="repo-item"><a href="#" class="repo-link"><span class="name">tollai-core</span><span class="desc">Core cognitive toll protocol with middleware, server, and attacker simulation</span><span class="stars">⭐ 1.2K</span></a></li>
+          <li class="repo-item"><a href="#" class="repo-link"><span class="name">tollai-dashboard</span><span class="desc">SOC dashboard with mode toggle and 4 protected scenarios</span><span class="stars">⭐ 842</span></a></li>
+          <li class="repo-item"><a href="#" class="repo-link"><span class="name">tollai-attacker</span><span class="desc">Autonomous agent simulator with Ollama and local fallback</span><span class="stars">⭐ 312</span></a></li>
+          <li class="repo-item repo pinned"><a href="#" class="repo-link"><span class="name">social-forum</span><span class="desc">DevForum clone with thread lists, categories, and posting privileges</span><span class="stars">⭐ 189</span></a></li>
+          <li class="repo-item"><a href="#" class="repo-link"><span class="name">news-portal</span><span class="desc">NYT-style newspaper prototype with TollAI verification</span><span class="stars">⭐ 156</span></a></li>
+        </ul>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Repository Stats</div>
+        <div class="stats-box">
+          <div class="stat-item">
+            <div class="stat-value">1.4K</div>
+            <div class="stat-label">Stars</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">89</div>
+            <div class="stat-label">Forks</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">42</div>
+            <div class="stat-label">Branches</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">12</div>
+            <div class="stat-label">Releases</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="sidebar-section">
+        <div class="sidebar-title">Popular Languages</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span class="tag accent">JavaScript</span>
+          <span class="tag">TypeScript</span>
+          <span class="tag success">Python</span>
+          <span class="tag">Go</span>
+          <span class="tag">Rust</span>
+          <span class="tag">HTML</span>
+          <span class="tag">CSS</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CONTENT AREA -->
+    <section class="content-area">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="#">Repositories</a><span class="sep">/</span>
+        <span class="current">tollai-core</span>
+      </nav>
+
+      <!-- Repo Overview -->
+      <article class="article" style="margin-bottom: 24px;">
+        <div style="font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--ink);">Repository Overview</div>
+        <div style="font-size: 0.9rem; line-height: 1.6; color: var(--ink-light);">
+          <p><strong>Description:</strong> Core cognitive toll protocol with middleware, server, and attacker simulation. Protects against autonomous AI agents using speed-based cognitive verification.</p>
+          <p><strong>Primary Language:</strong> JavaScript</p>
+          <p><strong>License:</strong> MIT</p>
+          <p><strong>Last Commit:</strong> 3 hours ago by sarah_chen</p>
+          <p><strong>Default Branch:</strong> main</p>
+        </div>
+      </article>
+
+      <!-- File List -->
+      <div class="file-list" role="list" aria-label="Repository files">
+        <div class="file-header" role="rowheader">
+          <div>Filename</div>
+          <div>Status</div>
+          <div>Lines</div>
+          <div>Committer</div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>toll-ai/middleware.js</strong></div>
+          <div class="status-dot green"></div>
+          <div class="mono">247</div>
+          <div class="file-committer"><div class="committer-avatar">MC</div><span class="committer-name">Marcus Webb</span><span class="committer-time mono">2h ago</span></div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>server.js</strong></div>
+          <div class="status-dot green"></div>
+          <div class="mono">249</div>
+          <div class="file-committer"><div class="committer-avatar">JL</div><span class="committer-name">James Liu</span><span class="committer-time mono">1h ago</span></div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>attackers/agent-simulator.js</strong></div>
+          <div class="status-dot yellow"></div>
+          <div class="mono">362</div>
+          <div class="file-committer"><div class="committer-avatar">AT</div><span class="committer-name">anon_tech</span><span class="committer-time mono">4h ago</span></div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>public/news-portal.html</strong></div>
+          <div class="status-dot green"></div>
+          <div class="mono">418</div>
+          <div class="file-committer"><div class="committer-avatar">EK</div><span class="committer-name">Elena Kowalski</span><span class="committer-time mono">2d ago</span></div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>public/social-forum.html</strong></div>
+          <div class="status-dot green"></div>
+          <div class="mono">384</div>
+          <div class="file-committer"><div class="committer-avatar">RP</div><span class="committer-name">raj_patel</span><span class="committer-time mono">1d ago</span></div>
+        </div>
+        
+        <div class="file-row" role="rowitem">
+          <div class="file-main"><strong>public/tollai-dashboard.html</strong></div>
+          <div class="status-dot green"></div>
+          <div class="mono">518</div>
+          <div class="file-committer"><div class="committer-avatar">DT</div><span class="committer-name">dev_team</span><span class="committer-time mono">3d ago</span></div>
+        </div>
+      </div>
+
+      <!-- Commit History Section -->
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--rule);">
+        <div style="font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--ink);">Recent Commits</div>
+        <div style="font-size: 0.8rem; color: var(--ink-light); line-height: 1.5;">
+          <p><strong>3 hours ago</strong> <span class="mono">Marcus Webb</span>: Add TollAI dashboard mode toggle — protected/unprotected switch with header 'x-tollai-mode'</p>
+          <p><strong>5 hours ago</strong> <span class="mono">Elena Kowalski</strong>: Add social-forum.html NYT-style forum page with thread lists and categories</p>
+          <p><strong>8 hours ago</strong> <span class="mono">James Liu</strong>: Fix agent-simulator.js Ollama fallback timeout (30s → instant local solve)</p>
+          <p><strong>12 hours ago</strong> <span class="mono">raj_patel</strong>: Add /unprotected/* routes for bypass mode testing</p>
+          <p><strong>1 day ago</strong> <span class="mono">sarah_chen</strong>: Update news-portal.html with MIT study citation — 1500ms cognitive threshold validated</p>
+        </div>
+      </div>
+
+      <!-- Release Notes -->
+      <div style="margin-top: 24px; padding-top: 24px; border-top: 2px solid var(--rule);">
+        <div style="font-family: 'Source Sans Pro', sans-serif; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink); margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--ink);">Release Notes</div>
+        <div style="font-size: 0.85rem; color: var(--ink-light); line-height: 1.5;">
+          <p><strong>v0.2.1</strong> — Just now</p>
+          <p>• Fixed agent-simulator.js Ollama timeout (was 30s, now instant local fallback)</p>
+          <p>• Added /unprotected/* routes for bypass mode testing</p>
+          <p>• UI polish: dashboard mode indicators and toll-banner updates</p>
+          <p><strong>v0.2.0</strong> — 2 days ago</p>
+          <p>• New social-forum.html page with NYT-style design</p>
+          <p>• New news-portal.html newspaper prototype</p>
+          <p>• Dashboard mode toggle (protected/unprotected)</p>
+          <p>• Conditional TollAI middleware — bypasses when x-tollai-mode=unprotected</p>
+          <p><strong>v0.1.0</strong> — Initial commit</p>
+          <p>• Core TollAI middleware with 1500ms cognitive threshold</p>
+          <p>• 4 protected scenarios: news, forum, git, chatbot</p>
+          <p>• Agent simulator with USE_OLLAMA flag</p>
+          <p>• SOC dashboard with mode indicators</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="footer" role="contentinfo">
+    <div class="footer-links">
+      <a href="#">About</a>
+      <a href="#">Documentation</a>
+      <a href="#">API Reference</a>
+      <a href="#">Security</a>
+      <a href="#">Licensing</a>
+      <a href="#">Contact</a>
+    </div>
+    <p>© 2024 TollGit. All rights reserved. Protected by TollAI Cognitive Toll Protocol.</p>
+    <p style="margin-top: 4px; font-size: 0.65rem;">This demonstration content is part of the TollAI PoC — Cognitive Toll Protocol vs Autonomous AI Agents</p>
+  </footer>
+</body>
+</html>
