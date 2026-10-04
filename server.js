@@ -47,6 +47,7 @@ const path = require('path');
 const TollAI = require('./toll-ai/middleware');
 
 const app = express();
+app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
