@@ -1,3 +1,47 @@
+
+// Ollama integration for chatbot
+async function getOllamaResponse(message, model = "gemma4:26b") {
+  try {
+    const https = require('https');
+    const url = new URL('http://100.100.110.13:11434/api/generate');
+    const payload = JSON.stringify({
+      model: model,
+      prompt: `You are an enterprise AI assistant. Respond concisely and professionally. User: ${message}`,
+      stream: false,
+      temperature: 0.7,
+      max_tokens: 200
+    });
+    const options = {
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+    };
+    return new Promise((resolve, reject) => {
+      const req = require('http').request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed.response || 'No response from model');
+          } catch (e) {
+            resolve('No response from model');
+          }
+        });
+      });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+    return null;
+  } catch (err) {
+    console.error('Ollama error:', err.message);
+    return null;
+  }
+}
+
 const express = require('express');
 const path = require('path');
 const TollAI = require('./toll-ai/middleware');
@@ -113,16 +157,31 @@ app.get('/api/git/source-code', conditionalTollAI('git-repository'), (req, res) 
 });
 
 // Scenario D: Corporate Chatbot - Anti Token-Drain
-app.post('/api/chat', conditionalTollAI('corporate-chatbot'), (req, res) => {
+app.post('/api/chat', conditionalTollAI('corporate-chatbot'), async (req, res) => {
   const { message } = req.body;
+  const useOllama = process.env.USE_OLLAMA !== 'false';
+  let response = `AI Assistant: I understand your question about "${message}". Here's my response...`;
+  let tokens_used = 142;
+  if (useOllama) {
+    try {
+      const ollamaResp = await getOllamaResponse(message);
+      if (ollamaResp) {
+        response = ollamaResp;
+        tokens_used = Math.ceil(response.length / 4);
+      }
+    } catch (err) {
+      console.error('Ollama fallback:', err.message);
+    }
+  }
   res.json({
     status: 'ok',
     scenario: 'corporate-chatbot',
     message: req.tollMetadata.bypassed ? 'Chat response delivered (NO PROTECTION)' : 'Chat response delivered - Human verified session',
-    response: `AI Assistant: I understand your question about "${message}". Here's my response...`,
-    tokens_used: 142,
+    response: response,
+    tokens_used: tokens_used,
     verified_at: new Date().toISOString(),
-    toll_metadata: req.tollMetadata
+    toll_metadata: req.tollMetadata,
+    model: useOllama ? 'gemma4:26b' : 'local-fallback'
   });
 });
 
@@ -188,16 +247,31 @@ app.get('/unprotected/git/source-code', (req, res) => {
   });
 });
 
-app.post('/unprotected/chat', (req, res) => {
+app.post('/unprotected/chat', async (req, res) => {
   const { message } = req.body;
+  const useOllama = process.env.USE_OLLAMA !== 'false';
+  let response = `AI Assistant: I understand your question about "${message}". Here's my response...`;
+  let tokens_used = 142;
+  if (useOllama) {
+    try {
+      const ollamaResp = await getOllamaResponse(message);
+      if (ollamaResp) {
+        response = ollamaResp;
+        tokens_used = Math.ceil(response.length / 4);
+      }
+    } catch (err) {
+      console.error('Ollama fallback:', err.message);
+    }
+  }
   res.json({
     status: 'ok',
     scenario: 'corporate-chatbot',
     message: 'Chat response delivered (UNPROTECTED MODE)',
-    response: `AI Assistant: I understand your question about "${message}". Here's my response...`,
-    tokens_used: 142,
+    response: response,
+    tokens_used: tokens_used,
     verified_at: new Date().toISOString(),
-    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'corporate-chatbot', bypassed: true }
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'corporate-chatbot', bypassed: true },
+    model: useOllama ? 'gemma4:26b' : 'local-fallback'
   });
 });
 
