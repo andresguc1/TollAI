@@ -205,10 +205,6 @@ app.get('/unprotected/news-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'news-portal.html'));
 });
 
-app.get('/unprotected/news-page', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'news-portal.html'));
-});
-
 app.get('/unprotected/forum-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'social-forum.html'));
 });
@@ -286,10 +282,12 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /news                        → News Portal (TollAI)');
   console.log('   GET  /forum                       → Social Forum (TollAI)');
   console.log('   GET  /git                         → Git Repository (TollAI)');
+  console.log('   GET  /chat                        → Corporate Chatbot (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
   console.log('   GET  /unprotected/git-repository  → Git Repository (No TollAI)');
+  console.log('   GET  /unprotected/chat-page      → Corporate Chatbot (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -299,6 +297,14 @@ process.on('SIGINT', () => {
   console.log('\n🛑 Shutting down TollAI server...');
   tollAI.destroy();
   server.close(() => process.exit(0));
+});
+
+// Corporate Chatbot page endpoints
+app.get('/chat', conditionalTollAI('corporate-chatbot'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'corporate-chatbot.html'));
+});
+app.get('/unprotected/chat-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'corporate-chatbot.html'));
 });
 
 module.exports = app;

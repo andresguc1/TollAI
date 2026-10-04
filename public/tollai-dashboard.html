@@ -240,8 +240,8 @@ const SCENARIOS = [
         protected: { endpoint: '/api/git', method: 'GET', page: '/git' },
         unprotected: { endpoint: '/unprotected/git', method: 'GET', page: '/unprotected/git-repository' } },
       { id: 'corporate-chatbot', name: 'Corporate Chatbot', desc: 'Anti Token-Drain DoS', icon: '🤖', 
-        protected: { endpoint: '/api/chat', method: 'POST', body: { message: 'Hello, how are you?' } },
-        unprotected: { endpoint: '/unprotected/chat', method: 'POST', body: { message: 'Hello, how are you?' } } }
+        protected: { endpoint: '/api/chat', method: 'POST', body: { message: 'Hello, how are you?' }, page: '/chat' },
+        unprotected: { endpoint: '/unprotected/chat', method: 'POST', body: { message: 'Hello, how are you?' }, page: '/unprotected/chat-page' } }
     ];
 
     let currentMode = 'unprotected';
