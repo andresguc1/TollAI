@@ -1,44 +1,52 @@
 
 // Ollama integration for chatbot
-async function getOllamaResponse(message, model = "gemma4:26b") {
+async function getOllamaResponse(message, model = process.env.OLLAMA_MODEL_VICTIM || "gemma4:26b") {
+  const startedAt = Date.now();
+  const http = require('http');
+  const payload = JSON.stringify({
+    model,
+    prompt: `You are an enterprise AI assistant. Respond concisely and professionally. User: ${message}`,
+    stream: false,
+    temperature: 0.7,
+    max_tokens: 200
+  });
+
   try {
-    const https = require('https');
-    const url = new URL('http://100.100.110.13:11434/api/generate');
-    const payload = JSON.stringify({
-      model: model,
-      prompt: `You are an enterprise AI assistant. Respond concisely and professionally. User: ${message}`,
-      stream: false,
-      temperature: 0.7,
-      max_tokens: 200
-    });
-    const options = {
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
-    };
-    return new Promise((resolve, reject) => {
-      const req = require('http').request(options, (res) => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            const parsed = JSON.parse(data);
-            resolve(parsed.response || 'No response from model');
-          } catch (e) {
-            resolve('No response from model');
-          }
-        });
+    const data = await new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: OLLAMA_HOST,
+        port: OLLAMA_PORT,
+        path: '/api/generate',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) }
+      }, res => {
+        let raw = '';
+        res.on('data', c => (raw += c));
+        res.on('end', () => resolve(raw));
       });
       req.on('error', reject);
+      req.setTimeout(Number(process.env.OLLAMA_TIMEOUT_MS || 45000), () => {
+        req.destroy(new Error('ollama timeout'));
+      });
       req.write(payload);
       req.end();
     });
-    return null;
+
+    const parsed = JSON.parse(data);
+    return {
+      text: parsed.response || 'No response from model',
+      // Ollama's own counters. If the model never reported them we return 0 and
+      // mark the record as unmeasured rather than inventing an estimate.
+      promptTokens: parsed.prompt_eval_count || 0,
+      completionTokens: parsed.eval_count || 0,
+      measured: typeof parsed.prompt_eval_count === 'number' && typeof parsed.eval_count === 'number',
+      model: parsed.model || model,
+      durationMs: Date.now() - startedAt
+    };
   } catch (err) {
     console.error('Ollama error:', err.message);
-    return null;
+    return { text: 'No response from model', promptTokens: 0, completionTokens: 0,
+             measured: false, model, durationMs: Date.now() - startedAt, error: err.message };
   }
 }
 
@@ -46,6 +54,11 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const TollAI = require('./toll-ai/middleware');
+const { Telemetry } = require('./toll-ai/telemetry');
+
+const telemetry = new Telemetry();
+const OLLAMA_HOST = process.env.OLLAMA_HOST || '100.100.110.13';
+const OLLAMA_PORT = Number(process.env.OLLAMA_PORT || 11434);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -126,6 +139,7 @@ function sendAttestationShell(req, res, scenario) {
 }
 
 const tollAI = new TollAI({
+  telemetry,
   minResponseTime: 1500,
   challengeTTL: 60000,
   powDifficulty: parseInt(process.env.TOLLAI_POW_DIFFICULTY || '14', 10),
@@ -195,6 +209,18 @@ app.post('/tollai/verify', (req, res) => {
     userAgent: req.headers['user-agent'] || 'unknown'
   });
 
+  telemetry.recordProof({
+    ip: clientIP,
+    client: 'browser',
+    userAgent: req.headers['user-agent'] || 'unknown',
+    challenge,
+    nonce,
+    difficulty: result.difficulty,
+    hashes: Number(nonce) + 1,
+    poWMs: result.workMs,
+    verifiedInMs: result.verifyMs
+  });
+
   res.cookie('tollai_session', token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -202,6 +228,33 @@ app.post('/tollai/verify', (req, res) => {
   });
 
   res.json({ verified: true, work_ms: result.workMs, difficulty: result.difficulty });
+});
+
+app.get('/tollai/telemetry', (req, res) => {
+  const limit = Math.min(parseInt(req.query.limit || '200', 10) || 200, telemetry.maxEvents);
+  res.set('Cache-Control', 'no-store');
+  res.json(telemetry.snapshot({ limit }));
+});
+
+app.delete('/tollai/telemetry', (req, res) => {
+  telemetry.clear();
+  res.json({ status: 'cleared' });
+});
+
+// LLM token accounting lives in telemetry, so the dashboard can prove whether
+// a number was measured by the model or estimated by a fallback.
+app.post('/tollai/usage', express.json(), (req, res) => {
+  const { promptTokens = 0, completionTokens = 0, model, scenario, error } = req.body || {};
+  telemetry.recordLLM({
+    ip: req.ip,
+    client: req.headers['x-tollai-client'] || 'unknown',
+    model: model || 'unknown',
+    scenario: scenario || 'unknown',
+    promptTokens,
+    completionTokens,
+    error: !!error
+  });
+  res.json({ status: 'recorded' });
 });
 
 app.get('/tollai/status', (req, res) => {
@@ -216,8 +269,10 @@ app.post('/tollai/dwell', (req, res) => {
 
   if (!token) return res.status(401).json({ ok: false, code: 'NO_SESSION' });
 
-  const { ok, session } = tollAI.sessions.get(token, clientIP);
-  if (!ok) return res.status(401).json({ ok: false, code: session.reason });
+  const result = tollAI.sessions.get(token, clientIP);
+  if (!result.ok) return res.status(401).json({ ok: false, code: result.reason });
+
+  const session = result.session;
 
   const dwellMs = tollAI.sessions.markDwell(session);
   tollAI.sessions.touch(token, session);
@@ -313,17 +368,32 @@ app.post('/api/chat', conditionalTollAI('corporate-chatbot'), async (req, res) =
   const useOllama = process.env.USE_OLLAMA !== 'false';
   let response = `AI Assistant: I understand your question about "${message}". Here's my response...`;
   let tokens_used = 142;
+  let usage = { source: 'synthetic', measured: false, promptTokens: 0, completionTokens: tokens_used };
   if (useOllama) {
     try {
       const ollamaResp = await getOllamaResponse(message);
       if (ollamaResp) {
-        response = ollamaResp;
-        tokens_used = Math.ceil(response.length / 4);
+        response = ollamaResp.text;
+        tokens_used = ollamaResp.promptTokens + ollamaResp.completionTokens;
+        usage = { source: 'ollama', ...ollamaResp };
       }
     } catch (err) {
+      usage = { source: 'ollama', measured: false, error: err.message };
       console.error('Ollama fallback:', err.message);
     }
   }
+  telemetry.recordLLM({
+    ip: req.ip,
+    client: req.headers['x-tollai-client'] || 'browser',
+    model: useOllama ? (usage.model || 'gemma4:26b') : 'local-fallback',
+    scenario: 'corporate-chatbot',
+    promptTokens: usage.promptTokens || 0,
+    completionTokens: usage.completionTokens || 0,
+    measured: !usage.estimated,
+    durationMs: usage.durationMs,
+    error: usage.error
+  });
+
   res.json({
     status: 'ok',
     scenario: 'corporate-chatbot',
@@ -332,7 +402,14 @@ app.post('/api/chat', conditionalTollAI('corporate-chatbot'), async (req, res) =
     tokens_used: tokens_used,
     verified_at: new Date().toISOString(),
     toll_metadata: req.tollMetadata,
-    model: useOllama ? 'gemma4:26b' : 'local-fallback'
+    usage: {
+      prompt_tokens: usage.promptTokens || 0,
+      completion_tokens: usage.completionTokens || 0,
+      total_tokens: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+      source: usage.source,
+      measured: usage.measured === true
+    },
+    model: useOllama ? (usage.model || 'gemma4:26b') : 'local-fallback'
   });
 });
 
@@ -403,17 +480,32 @@ app.post('/unprotected/chat', async (req, res) => {
   const useOllama = process.env.USE_OLLAMA !== 'false';
   let response = `AI Assistant: I understand your question about "${message}". Here's my response...`;
   let tokens_used = 142;
+  let usage = { source: 'synthetic', measured: false, promptTokens: 0, completionTokens: tokens_used };
   if (useOllama) {
     try {
       const ollamaResp = await getOllamaResponse(message);
       if (ollamaResp) {
-        response = ollamaResp;
-        tokens_used = Math.ceil(response.length / 4);
+        response = ollamaResp.text;
+        tokens_used = ollamaResp.promptTokens + ollamaResp.completionTokens;
+        usage = { source: 'ollama', ...ollamaResp };
       }
     } catch (err) {
+      usage = { source: 'ollama', measured: false, error: err.message };
       console.error('Ollama fallback:', err.message);
     }
   }
+  telemetry.recordLLM({
+    ip: req.ip,
+    client: 'unprotected',
+    model: useOllama ? (usage.model || 'gemma4:26b') : 'local-fallback',
+    scenario: 'corporate-chatbot',
+    promptTokens: usage.promptTokens || 0,
+    completionTokens: usage.completionTokens || 0,
+    measured: !usage.estimated,
+    durationMs: usage.durationMs,
+    error: usage.error
+  });
+
   res.json({
     status: 'ok',
     scenario: 'corporate-chatbot',
@@ -422,7 +514,14 @@ app.post('/unprotected/chat', async (req, res) => {
     tokens_used: tokens_used,
     verified_at: new Date().toISOString(),
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'corporate-chatbot', bypassed: true },
-    model: useOllama ? 'gemma4:26b' : 'local-fallback'
+    usage: {
+      prompt_tokens: usage.promptTokens || 0,
+      completion_tokens: usage.completionTokens || 0,
+      total_tokens: (usage.promptTokens || 0) + (usage.completionTokens || 0),
+      source: usage.source,
+      measured: usage.measured === true
+    },
+    model: useOllama ? (usage.model || 'gemma4:26b') : 'local-fallback'
   });
 });
 
@@ -910,6 +1009,12 @@ app.post('/unprotected/podcast/transcript', (req, res) => {
 });
 
 
+
+// Observability dashboard - operator view, never tolled.
+app.get('/logs', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, 'public', 'logs-dashboard.html'));
+});
 
 // Root - Dashboard (not tolled itself, but ships the client so its API
 // calls can pay the toll transparently)

@@ -10,6 +10,7 @@ class TollAI {
     this.challengeTTL = options.challengeTTL || 60000;
     this.onAIAgentDetected = options.onAIAgentDetected || (() => {});
     this.onSessionIssued = options.onSessionIssued || (() => {});
+    this.telemetry = options.telemetry || null;
 
     // The toll is priced in CPU, not in "answer this question": a bot can
     // always sleep for a requested delay, but it cannot avoid paying hashes.
@@ -201,6 +202,33 @@ class TollAI {
     });
   }
 
+  // "Who is this?" — one label reused by every telemetry row.
+  _identify(req) {
+    const agent = (req.headers['user-agent'] || 'unknown').toLowerCase();
+    let client = 'browser';
+    if (/headless|phantom|puppeteer|playwright/.test(agent)) client = 'headless';
+    // Agents often spoof a browser UA, so look for the tell-tale markers too.
+    else if (/axios|node-fetch|got|requests|python|curl|wget|go-http|httpclient|bot|crawler|spider|scrap|ai-agent|autonomous|tollai-poc/.test(agent)) client = 'agent';
+    else if (/python-requests|httpx|scrapy/.test(agent)) client = 'agent';
+    if (req.tollMode === 'unprotected') client += '/unprotected';
+    return { client, userAgent: req.headers['user-agent'] || 'unknown' };
+  }
+
+  _emit(req, detail) {
+    if (!this.telemetry) return;
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    this.telemetry.recordRequest({
+      ip,
+      client: this._identify(req).client,
+      userAgent: req.headers['user-agent'] || 'unknown',
+      method: req.method,
+      path: req.originalUrl.split('?')[0],
+      mode: req.tollMode || 'protected',
+      scenario: req.tollScenario || 'generic',
+      ...detail
+    });
+  }
+
   middleware() {
     return (req, res, next) => {
       const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
@@ -224,6 +252,12 @@ class TollAI {
               challengeId: token.slice(0, 16),
               detail: `${this.sessions.rateLimit}+ requests within ${this.sessions.rateWindowMs}ms`
             });
+            this._emit(req, {
+              decision: 'blocked',
+              signal: 'BURST_RATE',
+              scenario,
+              detail: `${this.sessions.rateLimit}+ requests in ${this.sessions.rateWindowMs}ms`
+            });
             return res.status(403).json({
               error: 'AI Agent Detected',
               message: 'Request burst exceeds human interaction rate - Autonomous agent blocked',
@@ -234,6 +268,8 @@ class TollAI {
           }
 
           if (quotaExceeded) {
+            this._emit(req, { decision: 'reproof', signal: 'QUOTA_EXHAUSTED', scenario,
+              detail: `${session.requests} requests this session` });
             return res.status(428).json({
               error: 'Proof of Work Required',
               message: 'Session quota exhausted - new proof of work required',
@@ -247,6 +283,14 @@ class TollAI {
           const mutating = req.method !== 'GET' && req.method !== 'HEAD';
           if (mutating && session.dwellMs < this.minDwellMs) {
             const remaining = this.minDwellMs - session.dwellMs;
+            if (this.telemetry) this.telemetry.noteDwellDeferred();
+            this._emit(req, {
+              decision: 'dwell-deferred',
+              signal: 'DWELL_REQUIRED',
+              scenario,
+              dwellMs: Math.round(session.dwellMs),
+              requiredMs: this.minDwellMs
+            });
             return res.status(428).json({
               error: 'Dwell Required',
               message: 'Stay on the page before submitting actions',
@@ -268,6 +312,14 @@ class TollAI {
             requests: session.requests,
             scenario
           };
+          this._emit(req, {
+            decision: 'transparent',
+            signal: 'valid-session',
+            sessionId: token.slice(0, 12),
+            poWMs: session.workMs,
+            dwellMs: Math.round(session.dwellMs || 0),
+            sessionRequests: session.requests
+          });
           return next();
         }
 
@@ -280,6 +332,12 @@ class TollAI {
         // Programmatic callers (fetch/XHR) get a machine-readable signal the
         // client library answers by proving work and retrying.
         if (!this._wantsHtml(req)) {
+          this._emit(req, {
+            decision: 'attestation-required',
+            signal: 'NO_SESSION',
+            scenario,
+            detail: 'browser without a TollAI cookie'
+          });
           return res.status(401).json({
             error: 'Attestation Required',
             message: 'Browser proof of work pending',
@@ -290,6 +348,12 @@ class TollAI {
 
         // Top-level navigation: let the page route render the shell.
         req.tollNeedsAttestation = true;
+        this._emit(req, {
+          decision: 'attestation-required',
+          signal: 'PAGE_SHELL',
+          scenario,
+          detail: 'browser navigation, shell served'
+        });
         return next();
       }
 
@@ -308,6 +372,14 @@ class TollAI {
       const challengeData = this._generateChallenge(scenario);
       const { challengeId, timestamp } = this._createChallengeToken(challengeData, clientIP);
 
+      this._emit(req, {
+        decision: 'challenge-issued',
+        signal: 'NO_JS_CLIENT',
+        scenario,
+        challengeId,
+        challengeType: challengeData.type || 'reasoning',
+        question: challengeData.question
+      });
       return res.status(433).json({
         error: 'Challenge Required',
         message: 'Cognitive toll required for autonomous agent detection',
@@ -371,6 +443,13 @@ class TollAI {
     const isCorrect = this._validateResponse(stored.challenge, challengeResponse);
 
     if (!isCorrect) {
+      this._emit(req, {
+        decision: 'blocked',
+        signal: 'WRONG_ANSWER',
+        scenario,
+        challengeId: challengeToken,
+        responseTime
+      });
       return res.status(403).json({
         error: 'Incorrect Answer',
         message: 'Incorrect answer to cognitive challenge',
@@ -382,6 +461,14 @@ class TollAI {
     stored.solved = true;
 
     if (responseTime < this.minResponseTime) {
+      this._emit(req, {
+        decision: 'blocked',
+        signal: 'MACHINE_SPEED',
+        scenario,
+        challengeId: challengeToken,
+        responseTime,
+        threshold: this.minResponseTime
+      });
       this._alert(req, scenario, clientIP, {
         reason: 'MACHINE_SPEED',
         challengeId: challengeToken,
@@ -412,6 +499,14 @@ class TollAI {
       challengeType: stored.challenge.type || 'reasoning',
       scenario
     };
+    this._emit(req, {
+      decision: 'admitted',
+      signal: 'SLOW_CORRECT_ANSWER',
+      scenario,
+      challengeId: challengeToken,
+      responseTime,
+      threshold: this.minResponseTime
+    });
 
     next();
   }

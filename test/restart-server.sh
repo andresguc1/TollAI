@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 pkill -9 -f "node server.js" 2>/dev/null
 sleep 1
 
-USE_OLLAMA=false setsid node server.js > /tmp/srv.log 2>&1 < /dev/null &
+USE_OLLAMA="${USE_OLLAMA:-false}" OLLAMA_MODEL_VICTIM="${OLLAMA_MODEL_VICTIM:-}" \
+  setsid node server.js > /tmp/srv.log 2>&1 < /dev/null &
 disown 2>/dev/null || true
 
 for _ in $(seq 1 40); do
