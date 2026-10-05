@@ -89,8 +89,6 @@
     .btn-primary:disabled { background: #2d333b; color: var(--text-muted); cursor: not-allowed; }
     .btn-secondary { background: var(--border); color: var(--text); }
     .btn-secondary:hover { background: #3d444d; }
-    .btn-link { background: transparent; color: var(--info); border: 1px solid var(--info); }
-    .btn-link:hover { background: rgba(88,166,255,0.1); }
     
     .status-display {
       margin-top: 12px; padding: 10px 14px;
@@ -298,9 +296,6 @@ const SCENARIOS = [
             <button class="btn btn-primary" id="btnTest-${s.id}" onclick="testScenario('${s.id}')">
               ${currentMode === 'protected' ? '🧪 Test Attack' : '🔗 Access Page'}
             </button>
-            <button class="btn btn-link" id="btnDirect-${s.id}" onclick="directAccess('${s.id}')" style="${currentMode === 'protected' ? 'display:none' : ''}">
-              Direct Link
-            </button>
           </div>
           <div class="status-display status-secure" id="status-${s.id}">
             <span class="status-dot"></span> READY
@@ -442,21 +437,6 @@ const SCENARIOS = [
       
       updateStats();
       btn.disabled = false; btn.textContent = btnText;
-    }
-
-    function directAccess(scenarioId) {
-      const scenario = SCENARIOS.find(s => s.id === scenarioId);
-      if (!scenario) return;
-      
-      const config = scenario[currentMode];
-      if (!config || !config.page) return;
-      
-      stats.total++;
-      updateStats();
-      addLog(`Direct navigation to ${scenario.name} (${currentMode.toUpperCase()})`, 'info');
-      
-      // Just navigate - let server handle protection
-      window.location.href = config.page;
     }
 
     function closeChallenge() {
