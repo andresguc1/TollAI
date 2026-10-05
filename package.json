@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "config": "node attacker-config.js",
     "attack": "node attackers/agent-simulator.js",
     "test": "node attackers/agent-simulator.js --all",
     "test:flows": "node test/toll-flows.js",

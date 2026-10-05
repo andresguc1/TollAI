@@ -13,9 +13,12 @@ app.get('/.well-known/appspecific/com.chrome.devtools.json', (req, res) => {
   res.status(204).end();
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+// The attacker UI lives in its own directory: it must never serve — or be
+// confused with — the victim portals that TollAI is protecting.
+app.use(express.static(path.join(__dirname, 'public', 'attacker')));
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://100.100.110.13:11434';
+const SIMULATOR = path.join(__dirname, 'attackers', 'agent-simulator.js');
 
 let currentAttackProcess = null;
 let attackLogs = [];
@@ -44,36 +47,28 @@ app.post('/api/attack/start', (req, res) => {
   const config = req.body;
   attackLogs = [];
   attackStatus = 'running';
-  addLog(`Starting attack with config: ${JSON.stringify(config)}`, 'info');
+  addLog(`Launching ${config.scope === 'single' ? config.scenario : 'all 12 scenarios'} against ${config.targetUrl}`, 'info');
 
-  const args = ['attacker.js'];
-  
-  if (config.useOllama) {
-    process.env.USE_OLLAMA = 'true';
-    process.env.OLLAMA_MODEL = config.ollamaModel || 'gemma4:e2b-it-qat';
-    process.env.OLLAMA_URL = config.ollamaUrl || OLLAMA_URL;
+  const args = [SIMULATOR];
+  if (config.scope === 'single') {
+    args.push('--scenario', config.scenario);
   } else {
-    process.env.USE_OLLAMA = 'false';
+    args.push('--all');
   }
 
-  process.env.TARGET_URL = config.targetUrl || 'http://localhost:3000';
-
-  if (config.multi > 1) {
-    args.push('--multi', String(config.multi));
+  // A fresh env per launch: never inherit a previous attack's settings.
+  const env = { ...process.env };
+  env.USE_OLLAMA = config.useOllama ? 'true' : 'false';
+  env.TARGET_URL = config.targetUrl || 'http://localhost:3000';
+  if (config.useOllama) {
+    env.OLLAMA_MODEL = config.ollamaModel || 'gemma4:e2b-it-qat';
+    env.OLLAMA_URL = config.ollamaUrl || OLLAMA_URL;
   }
-
   if (config.customPrompt) {
-    process.env.CUSTOM_PROMPT = config.customPrompt;
+    env.CUSTOM_PROMPT = config.customPrompt;
   }
 
-  if (config.delayBetween) {
-    process.env.ATTACK_DELAY = String(config.delayBetween);
-  }
-
-  currentAttackProcess = spawn('node', args, {
-    cwd: __dirname,
-    env: { ...process.env }
-  });
+  currentAttackProcess = spawn('node', args, { cwd: __dirname, env });
 
   currentAttackProcess.stdout.on('data', (data) => {
     const lines = data.toString().split('\n').filter(l => l.trim());
@@ -88,7 +83,7 @@ app.post('/api/attack/start', (req, res) => {
   currentAttackProcess.on('close', (code) => {
     attackStatus = 'idle';
     currentAttackProcess = null;
-    addLog(`Attack finished with code: ${code}`, code === 0 ? 'success' : 'error');
+    addLog(`Attack finished with exit code ${code}`, code === 0 ? 'success' : 'error');
   });
 
   currentAttackProcess.on('error', (err) => {
@@ -125,20 +120,20 @@ app.get('/api/attack/logs', (req, res) => {
 
 app.get('/api/config/defaults', (req, res) => {
   res.json({
-    targetUrl: 'http://localhost:3000',
+    targetUrl: process.env.TARGET_URL || 'http://localhost:3000',
+    scope: 'all',
     useOllama: false,
-    ollamaModel: 'gemma4:e2b-it-qat',
-    ollamaUrl: OLLAMA_URL,
-    multi: 1,
-    delayBetween: 1000,
+    ollamaModel: process.env.OLLAMA_MODEL || 'gemma4:e2b-it-qat',
+    ollamaUrl: process.env.OLLAMA_URL || OLLAMA_URL,
     customPrompt: ''
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`\n⚙️  ATTACK CONFIGURATOR - AI-CAPTCHA PoC`);
-  console.log(`═══════════════════════════════════════════`);
-  console.log(`🌐 Web UI: http://localhost:${PORT}`);
-  console.log(`🔧 REST API: http://localhost:${PORT}/api/*`);
-  console.log(`═══════════════════════════════════════════\n`);
+  console.log('\n⚔️  TOLLAI ATTACKER CONTROL PANEL');
+  console.log('═══════════════════════════════════════════');
+  console.log(`🌐 Panel:      http://localhost:${PORT}`);
+  console.log(`🎯 Default target: ${process.env.TARGET_URL || 'http://localhost:3000'}`);
+  console.log(`🔧 REST API:  http://localhost:${PORT}/api/*`);
+  console.log('═══════════════════════════════════════════\n');
 });

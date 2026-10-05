@@ -109,6 +109,7 @@ tollai-poc/
 ├── toll-ai/
 │   ├── middleware.js            # Cookie, fingerprint, dwell, burst, 433 fallback
 │   └── pow.js                   # ProofOfWork + SessionStore
+├── attacker-config.js           # Attacker control panel (port 3001)
 ├── attackers/
 │   └── agent-simulator.js       # Autonomous agent simulator (12 scenarios)
 ├── test/
@@ -118,7 +119,8 @@ tollai-poc/
 └── public/
     ├── tollai-client.js         # JS SHA-256, PoW, fetch patch, dwell heartbeat
     ├── tollai-dashboard.html    # SOC dashboard (served at /)
-    └── *-portal.html            # The 12 portals
+    ├── *-portal.html            # The 12 portals
+    └── attacker/index.html      # Attacker panel (served only on port 3001)
 ```
 
 ## 🚀 Quick Start
@@ -154,7 +156,19 @@ Expected output:
 
 Open dashboard: **http://localhost:3000/**
 
-### 3. Run Attack Simulation (Terminal 2)
+### 3. Attacker Control Panel (Terminal 2)
+
+The attacker has its own page, separate from the victim dashboard:
+
+```bash
+npm run config
+# → http://localhost:3001
+```
+
+Configure the target, pick all 12 scenarios or just one, optionally let a real
+LLM solve the challenges, and watch the live output. Verified: 12/12 blocked.
+
+### 4. Run Attack Simulation (Terminal 3)
 ```bash
 # Attack all 12 scenarios
 npm run attack
@@ -166,7 +180,7 @@ node attackers/agent-simulator.js --scenario news-portal
 node attackers/agent-simulator.js --scenario podcast-portal
 ```
 
-### 4. With Real LLM (Optional)
+### 5. With Real LLM (Optional)
 ```bash
 USE_OLLAMA=true OLLAMA_MODEL=gemma4:e2b-it-qat npm run attack
 ```
