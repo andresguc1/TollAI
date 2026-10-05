@@ -564,6 +564,43 @@ app.get('/unprotected/ecommerce/products', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'ecommerce-portal', bypassed: true }
   });
 });
+// Scenario K: Trading/Exchange - HFT Front-Running & Order Book Abuse Protection
+app.post('/api/trading/order', conditionalTollAI('trading-portal'), (req, res) => {
+  const { symbol, side, qty, price } = req.body;
+  res.json({
+    status: 'submitted',
+    scenario: 'trading-portal',
+    message: req.tollMetadata.bypassed ? 'Order submitted (NO PROTECTION)' : 'Order submitted - Human verified trading intent',
+    order_id: 'ord_' + Date.now(),
+    symbol: symbol || 'BTC/USD',
+    side: side || 'BUY',
+    qty: qty || 0,
+    price: price || 0,
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/trading/orderbook/:symbol', conditionalTollAI('trading-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'trading-portal',
+    symbol: req.params.symbol,
+    bids: [],
+    asks: [],
+    message: 'Order book protected against automated scraping',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.post('/unprotected/trading/order', (req, res) => {
+  res.json({
+    status: 'submitted',
+    scenario: 'trading-portal',
+    message: 'Order submitted (UNPROTECTED MODE)',
+    order_id: 'ord_unprotected_' + Date.now(),
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'trading-portal', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -615,6 +652,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /finance                     → Finance Portal (TollAI)');
   console.log('   GET  /health-portal               → Health Records (TollAI)');
   console.log('   GET  /ecommerce                   → E-Commerce (TollAI)');
+  console.log('   GET  /trading                     → Trading Exchange (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -626,6 +664,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/finance-page    → Finance Portal (No TollAI)');
   console.log('   GET  /unprotected/health-page      → Health Records (No TollAI)');
   console.log('   GET  /unprotected/ecommerce-page  → E-Commerce (No TollAI)');
+  console.log('   GET  /unprotected/trading-page    → Trading Exchange (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
