@@ -743,9 +743,19 @@ app.get('/unprotected/health-page', (req, res) => {
 app.get('/ecommerce', conditionalTollAI('ecommerce-portal'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'ecommerce-portal.html'));
 });
+
+app.get('/trading', conditionalTollAI('trading-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'trading-portal.html'));
+});
+
 app.get('/unprotected/ecommerce-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'ecommerce-portal.html'));
 });
+
+app.get('/unprotected/trading-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'trading-portal.html'));
+});
+
 
 
 module.exports = app;
