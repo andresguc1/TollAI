@@ -65,13 +65,18 @@ in CPU, and only becomes visible when the client does not look like a browser.
 
 | Layer | What it measures | Who pays | Human cost |
 |-------|------------------|----------|------------|
-| **1. Attestation (PoW)** | CPU: SHA-256 with `difficulty` leading zero bits | Any JS browser | ~450 ms, invisible |
+| **1. Attestation (PoW)** | CPU: SHA-256 with `difficulty` leading zero bits | Once per session | ~450 ms, invisible |
 | **2. Session** | `HttpOnly` cookie bound to IP, 15 min sliding TTL | Once per session | 0 |
 | **3. Dwell** | Real time spent looking at the page (`/tollai/dwell`) | Mutations (POST) only | Natural reading time |
 | **4. Anti-burst** | Requests per window + per-session quota | Chained scrapers | 0 |
 
 `GET` requests never require dwell: reading is instant. `POST` requests (transfer,
 post, place an order, trigger ASR) require `minDwellMs` to have accumulated.
+
+The proof of work is paid **once per session**, not once per page load: the server
+tells the client the cookie is already valid (`window.TOLLAI_SESSION`), so
+browsing four protected portals costs one PoW, not four. Only when a request
+comes back `401` or `428 REPROOF_REQUIRED` does the client re-attest.
 
 ### Why PoW and not "please wait N seconds"
 
@@ -296,14 +301,14 @@ licensing and content filters never fire.
 npm start                 # terminal 1
 
 npm run test:flows        # 9 checks: human vs agent, end to end
-npm run test:client       # 14 checks: the real browser client in a sandbox
+npm run test:client       # 15 checks: the real browser client in a sandbox
 npm test                  # 12/12 attack campaign (must stay at 100%)
 npm run test:all          # everything
 
 ./test/restart-server.sh  # clean detached restart if a suite races a stale process
 ```
 
-Expected: `9/9`, `14/14` and `12/12 blocked · 100% effectiveness`.
+Expected: `9/9`, `15/15` and `12/12 blocked · 100% effectiveness`.
 
 The client suite runs `public/tollai-client.js` inside a `vm` sandbox with a fake
 DOM and a real HTTP stack, so the actual bootstrap path is exercised — including

@@ -128,6 +128,7 @@
         }).then(function (res) {
           if (!res.verified) throw new Error(res.code || 'verify failed');
           window.__TOLLAI_WORK_MS__ = Date.now() - t0;
+          window.TOLLAI_SESSION = true;
           return res;
         });
       })
@@ -142,6 +143,13 @@
   // Drop the memoised session so the next call re-proves work.
   function resetSession() {
     readyPromise = null;
+    window.TOLLAI_SESSION = false;
+  }
+
+  // The server sets this when it already validated the cookie, so a normal
+  // page load costs zero CPU instead of re-paying the proof of work.
+  function hasSession() {
+    return !!window.TOLLAI_SESSION;
   }
 
   function status(el, text, cls) {
@@ -215,8 +223,9 @@
 
     if (!isTolled) return nativeFetch(input, init);
 
-    return establish()
-      .catch(function () { return null; })
+    var ready = hasSession() ? Promise.resolve(null) : establish().catch(function () { return null; });
+
+    return ready
       .then(function () {
         return nativeFetch(input, Object.assign({}, init, { credentials: 'same-origin' }));
       })
@@ -262,6 +271,13 @@
 
   /* ---------- boot ---------- */
   function boot() {
+    // Already tolled by the server: no puzzle, no spinner, no CPU burned.
+    if (hasSession()) {
+      startDwellHeartbeat();
+      document.documentElement.setAttribute('data-tollai', 'verified');
+      return;
+    }
+
     var pill = mountIndicator();
     establish().then(function () {
       startDwellHeartbeat();

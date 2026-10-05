@@ -81,8 +81,15 @@ function serveTolledPage(req, res, file) {
   if (req.tollNeedsAttestation) return sendAttestationShell(req, res, req.tollScenario);
 
   const html = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8');
+  // If the session is already valid the client must not pay the toll again:
+  // tell it up front so a page load costs zero CPU.
+  const sessionTag = req.tollVerified
+    ? '<script>window.TOLLAI_SESSION = true;</script>\n'
+    : '';
   res.set('Cache-Control', 'no-store');
-  res.send(html.includes('</body>') ? html.replace('</body>', `${CLIENT_TAG}\n</body>`) : html + CLIENT_TAG);
+  res.send(html.includes('</body>')
+    ? html.replace('</body>', `${sessionTag}${CLIENT_TAG}\n</body>`)
+    : html + sessionTag + CLIENT_TAG);
 }
 
 function sendAttestationShell(req, res, scenario) {

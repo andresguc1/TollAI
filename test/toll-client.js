@@ -223,6 +223,22 @@ watchdog.unref();
   check('browser client waits out the dwell invisibly (no error surfaced)',
     hidden.status === 200, `status ${hidden.status}`);
 
+  /* ---------------- no re-paying PoW per page load ---------------- */
+  // The server tells the client the cookie is already good; a normal page load
+  // must therefore cost zero CPU (this regressed once already).
+  let rePays = 0;
+  const realFetch = sandbox.fetch;
+  sandbox.fetch = function (u, i) {
+    if (String(u).indexOf('/tollai/') === 0) rePays++;
+    return realFetch(u, i);
+  };
+  const freshCtx = { ...sandbox, TOLLAI_SESSION: true };
+  sandbox.TOLLAI_SESSION = true;
+  await sandbox.fetch('/api/news');
+  sandbox.TOLLAI_SESSION = false;
+  check('valid session means no new proof of work on a page load', rePays === 0,
+    `${rePays} protocol calls`);
+
   const ok = results.filter(Boolean).length;
   console.log(`\n${ok}/${results.length} client checks passed`);
   process.exit(ok === results.length ? 0 : 1);
