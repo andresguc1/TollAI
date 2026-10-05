@@ -294,7 +294,7 @@ const SCENARIOS = [
           </span>
           <div class="btn-row">
             <button class="btn btn-primary" id="btnTest-${s.id}" onclick="testScenario('${s.id}')">
-              ${currentMode === 'protected' ? '🧪 Test Attack' : '🔗 Access Page'}
+              🔗 Access Page
             </button>
           </div>
           <div class="status-display status-secure" id="status-${s.id}">
@@ -366,11 +366,11 @@ const SCENARIOS = [
       const btnText = btn.textContent;
       
       btn.disabled = true;
-      btn.textContent = '⏳ Testing...';
+      btn.textContent = '⏳ Accessing...';
       stats.total++;
       updateStats();
       
-      addLog(`Testing ${scenario.name} (${currentMode.toUpperCase()})...`, 'warning');
+      addLog(`Accessing ${scenario.name} (${currentMode.toUpperCase()})...`, 'warning');
       setStatus(scenarioId, 'status-challenge', currentMode === 'protected' ? 'CHALLENGE PENDING' : 'ACCESSING...');
 
       try {
