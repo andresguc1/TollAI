@@ -530,6 +530,40 @@ app.get('/unprotected/health/records', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'health-portal', bypassed: true }
   });
 });
+// Scenario J: E-Commerce - Price Scraping & Inventory Bot Protection
+app.get('/api/ecommerce/products', conditionalTollAI('ecommerce-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'ecommerce-portal',
+    message: req.tollMetadata.bypassed ? 'Products accessed (NO PROTECTION)' : 'Products accessed - Human verified',
+    products: [
+      { id: 1, name: 'Wireless Headphones', price: 299.99, stock: 12 },
+      { id: 2, name: 'Smart Watch', price: 249.99, stock: 8 },
+      { id: 3, name: 'Laptop Stand', price: 89.99, stock: 24 },
+      { id: 4, name: 'Mechanical Keyboard', price: 159.99, stock: 6 }
+    ],
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/ecommerce/product/:id', conditionalTollAI('ecommerce-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'ecommerce-portal',
+    id: req.params.id,
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/ecommerce/products', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'ecommerce-portal',
+    message: 'Products accessed (UNPROTECTED MODE)',
+    products: [],
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'ecommerce-portal', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -580,6 +614,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /video                       → Video Portal (TollAI)');
   console.log('   GET  /finance                     → Finance Portal (TollAI)');
   console.log('   GET  /health-portal               → Health Records (TollAI)');
+  console.log('   GET  /ecommerce                   → E-Commerce (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -590,6 +625,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/video-page      → Video Portal (No TollAI)');
   console.log('   GET  /unprotected/finance-page    → Finance Portal (No TollAI)');
   console.log('   GET  /unprotected/health-page      → Health Records (No TollAI)');
+  console.log('   GET  /unprotected/ecommerce-page  → E-Commerce (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');

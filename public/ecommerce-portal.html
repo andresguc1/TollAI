@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopVault — Protected E-Commerce Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@900&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --muted: #6a737d; --accent: #0969da; --success: #238636; --border: #d0d7de; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --border: #30363d; } }
+    body { font-family: 'Merriweather', serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    .header-top { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1200px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; display: flex; justify-content: space-between; }
+    .badge { background: var(--accent); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+    .main { max-width: 1200px; margin: 32px auto; padding: 0 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; }
+    .item { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .thumb { height: 180px; background: linear-gradient(135deg, var(--accent) 0%, #8957e5 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 3rem; }
+    .item:nth-child(2n) .thumb { background: linear-gradient(135deg, #238636 0%, #58a6ff 100%); }
+    .info { padding: 16px; font-family: 'Source Sans Pro', sans-serif; }
+    .title { font-weight: 700; }
+    .price { color: var(--success); font-weight: 700; margin-top: 4px; }
+    .meta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">SV</span>
+        <div><h1>ShopVault</h1><div class="tagline">Protected E-Commerce — Anti-Scraper & Bot Protection</div></div>
+      </a>
+    </div>
+  </header>
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — Price scraping, stock monitoring & scalper bots blocked</div>
+    <span class="badge">ANTI-BOT</span>
+  </div>
+  <main class="main">
+    <div class="grid">
+      <div class="item"><div class="thumb">01</div><div class="info"><div class="title">Wireless Headphones</div><div class="price">$299.99</div><div class="meta">Stock: 12 units</div></div></div>
+      <div class="item"><div class="thumb">02</div><div class="info"><div class="title">Smart Watch</div><div class="price">$249.99</div><div class="meta">Stock: 8 units</div></div></div>
+      <div class="item"><div class="thumb">03</div><div class="info"><div class="title">Laptop Stand</div><div class="price">$89.99</div><div class="meta">Stock: 24 units</div></div></div>
+      <div class="item"><div class="thumb">04</div><div class="info"><div class="title">Mechanical Keyboard</div><div class="price">$159.99</div><div class="meta">Stock: 6 units</div></div></div>
+    </div>
+  </main>
+  <footer class="footer">
+    <p>© 2024 ShopVault. All rights reserved. Catalog protected by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+</body>
+</html>
