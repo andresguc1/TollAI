@@ -32,8 +32,6 @@
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--purple)}
   textarea{resize:vertical;min-height:64px;font-family:ui-monospace,monospace;font-size:12px}
   .hint{color:var(--dim);font-size:11.5px;margin-top:5px}
-  .row{display:flex;gap:9px}
-  .row>*{flex:1}
   .chk{display:flex;align-items:center;gap:9px;margin:15px 0 4px;cursor:pointer}
   .chk input{width:auto;margin:0}
   .chk span{font-size:13px;color:var(--txt)}
@@ -48,14 +46,43 @@
   .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
   .dot.run{background:var(--red);animation:pulse 1.1s infinite}
   @keyframes pulse{50%{opacity:.28}}
-  #log{background:#010409;border:1px solid var(--line);border-radius:11px;height:66vh;
-    overflow-y:auto;padding:15px;font:12px/1.62 ui-monospace,SFMono-Regular,Menlo,monospace}
+  #log{background:#010409;border:1px solid var(--line);border-radius:0 0 11px 11px;height:64vh;
+    overflow-y:auto;padding:13px 15px;font:12px/1.62 ui-monospace,SFMono-Regular,Menlo,monospace;
+    scroll-behavior:auto}
   #log div{white-space:pre-wrap;word-break:break-word;padding:1px 0}
-  .t{color:#484f58;margin-right:9px}
-  .stdout{color:#c9d1d9}
+  .t{flex:0 0 auto;color:#484f58;margin-right:2px}
+  .stdout{color:#8b949e}
   .error,.stderr{color:var(--red)}
   .success{color:var(--green)}
   .warning{color:var(--amber)}
+  /* TollAI-relevant lines get a marker so a challenge can never hide in the noise */
+  .row{display:flex;gap:10px;padding:1px 0}
+  .row .tag{flex:0 0 74px;font:600 9.5px/1.7 ui-monospace,monospace;letter-spacing:.5px;
+    text-align:right;color:#484f58;text-transform:uppercase}
+  .row .msg{flex:1;min-width:0;white-space:pre-wrap;word-break:break-word}
+  .row.challenge .msg{color:var(--purple)}
+  .row.challenge .tag{color:var(--purple)}
+  .row.q .msg{color:#e6edf3;font-weight:600}
+  .row.q .tag{color:var(--purple)}
+  .row.denied .msg{color:var(--red);font-weight:600}
+  .row.denied .tag{color:var(--red)}
+  .row.granted .msg{color:var(--amber);font-weight:600}
+  .row.granted .tag{color:var(--amber)}
+  .row.plain .msg{color:var(--txt)}
+  .row.verdict .msg{color:var(--txt);font-weight:600}
+  #jump{position:absolute;right:20px;bottom:26px;z-index:5;display:none;
+    background:var(--purple);color:#fff;border:none;width:auto;margin:0;padding:8px 13px;
+    font:600 11.5px/1 inherit;border-radius:999px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.5)}
+  #logWrap{position:relative}
+  .filters{display:flex;gap:6px}
+  .filters button{width:auto;margin:0;padding:5px 11px;font:600 11px/1 inherit;border-radius:999px;
+    background:transparent;border:1px solid var(--line);color:var(--dim);cursor:pointer}
+  .filters button.on{background:var(--purple);border-color:var(--purple);color:#fff}
+  .ledger{display:flex;gap:15px;font:600 11.5px/1 ui-monospace,monospace}
+  .ledger i{font-style:normal;color:var(--dim);margin-right:5px}
+  .ledger .c{color:var(--purple)} .ledger .b{color:var(--green)} .ledger .p{color:var(--amber)}
+  .lastid{font:600 11px/1 ui-monospace,monospace;color:var(--dim);max-width:280px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bar{padding:13px 17px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
   .bar h2{margin:0;font-size:13px;font-weight:650;letter-spacing:.4px}
   .bar .spacer{flex:1}
@@ -133,9 +160,21 @@
     <div class="bar">
       <h2>Live output</h2>
       <div class="spacer"></div>
-      <span class="tally" id="tally"></span>
+      <span class="lastid" id="lastid"></span>
+      <div class="ledger">
+        <span><i>challenges</i><span class="c" id="nChal">0</span></span>
+        <span><i>blocked</i><span class="b" id="nBlocked">0</span></span>
+        <span><i>passed</i><span class="p" id="nPassed">0</span></span>
+      </div>
+      <div class="filters">
+        <button id="fAll" class="on">All</button>
+        <button id="fToll">TollAI only</button>
+      </div>
     </div>
-    <div id="log"></div>
+    <div id="logWrap">
+      <div id="log"></div>
+      <button id="jump">↓ Resume live</button>
+    </div>
   </div>
 </div>
 
@@ -171,26 +210,106 @@ $('useOllama').onchange = () => {
 };
 
 let seen = 0;
+let pending = 0;
+let stick = true;
+let filter = 'all';
+const log = $('log');
+
+// Classify a line so a TollAI challenge is never lost in the noise.
+function classify(msg) {
+  if (/Challenge received \(HTTP 433/.test(msg)) return ['challenge', 'challenge'];
+  if (/Challenge ID:/.test(msg)) return ['challenge', 'id'];
+  if (/^\s*\U0001F4DD Challenge:/.test(msg)) return ['q', 'question'];
+  if (/^\s*\U0001F50D Type:/.test(msg)) return ['challenge', 'type'];
+  if (/Access DENIED/.test(msg)) return ['denied', 'denied'];
+  if (/Access GRANTED/.test(msg)) return ['granted', 'granted'];
+  if (/\U0001F6D1 BLOCKED/.test(msg)) return ['denied', 'summary'];
+  if (/\u2705 PASSED/.test(msg)) return ['granted', 'summary'];
+  if (/TOLLAI OBJECTIVE ACHIEVED/.test(msg)) return ['denied', 'verdict'];
+  if (/^\s*\u23F1|Required:/.test(msg)) return ['challenge', 'timing'];
+  if (/^\u2705 Answer:/.test(msg)) return ['plain', 'answer'];
+  if (/Solved in:/.test(msg)) return ['plain', 'solve time'];
+  return ['plain', ''];
+}
+
+const isToll = cls => ['challenge', 'q', 'denied', 'granted'].includes(cls);
 
 function append(entries) {
-  const log = $('log');
-  for (const e of entries.slice(seen)) {
+  const fresh = entries.slice(seen);
+  seen = entries.length;
+
+  for (const e of fresh) {
+    const [cls, tag] = classify(e.message);
+    if (filter === 'toll' && !isToll(cls)) continue;
+
     const row = document.createElement('div');
-    row.className = e.type;
+    row.className = 'row ' + cls;
     const time = document.createElement('span');
     time.className = 't';
     time.textContent = new Date(e.timestamp).toLocaleTimeString('en-GB');
-    row.appendChild(time);
-    row.appendChild(document.createTextNode(e.message));
+    const tagEl = document.createElement('span');
+    tagEl.className = 'tag';
+    tagEl.textContent = tag;
+    const msg = document.createElement('span');
+    msg.className = 'msg';
+    msg.textContent = e.message;
+    row.append(time, tagEl, msg);
     log.appendChild(row);
-  }
-  seen = entries.length;
-  log.scrollTop = log.scrollHeight;
 
-  const blocked = entries.filter(e => /BLOCKED/.test(e.message)).length;
-  const passed = entries.filter(e => /PASSED/.test(e.message)).length;
-  $('tally').textContent = entries.length ? `blocked ${blocked} · passed ${passed}` : '';
+    if (/Challenge ID:/.test(e.message)) {
+      const id = e.message.split('Challenge ID:')[1].trim();
+      $('lastid').textContent = 'last challenge ' + id.slice(0, 16);
+      $('lastid').title = id;
+    }
+  }
+
+  const all = entries.map(e => e.message);
+  $('nChal').textContent = all.filter(m => /Challenge received \(HTTP 433/.test(m)).length;
+  $('nBlocked').textContent = all.filter(m => /Access DENIED/.test(m)).length;
+  $('nPassed').textContent = all.filter(m => /Access GRANTED/.test(m)).length;
+
+  if (!fresh.length) return;
+
+  // Only pin to the bottom if the reader has not scrolled away.
+  if (stick) {
+    log.scrollTop = log.scrollHeight;
+  } else {
+    pending += fresh.filter(e => filter === 'all' || isToll(classify(e.message)[0])).length;
+    $('jump').style.display = 'block';
+    $('jump').textContent = `\u2193 ${pending} new line${pending === 1 ? '' : 's'} \u2014 resume`;
+  }
 }
+
+log.addEventListener('scroll', () => {
+  const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 32;
+  if (atBottom === stick) return;
+  stick = atBottom;
+  if (stick) {
+    pending = 0;
+    $('jump').style.display = 'none';
+  } else if (pending === 0) {
+    $('jump').style.display = 'block';
+    $('jump').textContent = '\u2193 paused \u2014 resume';
+  }
+});
+
+$('jump').onclick = () => {
+  stick = true;
+  pending = 0;
+  $('jump').style.display = 'none';
+  log.scrollTop = log.scrollHeight;
+};
+
+function setFilter(mode) {
+  filter = mode;
+  $('fAll').className = mode === 'all' ? 'on' : '';
+  $('fToll').className = mode === 'toll' ? 'on' : '';
+  seen = 0;
+  log.innerHTML = '';
+  poll();
+}
+$('fAll').onclick = () => setFilter('all');
+$('fToll').onclick = () => setFilter('toll');
 
 async function poll() {
   try {
@@ -216,8 +335,10 @@ $('start').onclick = async () => {
     ollamaModel: $('ollamaModel').value.trim(),
     customPrompt: $('customPrompt').value.trim()
   };
-  seen = 0;
-  $('log').innerHTML = '';
+  seen = 0; pending = 0; stick = true;
+  $('jump').style.display = 'none';
+  $('lastid').textContent = '';
+  log.innerHTML = '';
   await fetch('/api/attack/start', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
