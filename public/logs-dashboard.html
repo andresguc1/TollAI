@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -96,8 +96,8 @@
     <div class="card">
       <h2>Clients — who queries us</h2>
       <table>
-        <thead><tr><th>Cliente</th><th>UA</th><th class="num">Req</th><th class="num">Toll</th>
-          <th class="num">Bloq</th><th class="num">Tokens</th></tr></thead>
+        <thead><tr><th>Client</th><th>UA</th><th class="num">Req</th><th class="num">LLM</th><th class="num">Toll</th>
+          <th class="num">Blocked</th><th class="num">Tokens</th></tr></thead>
         <tbody id="clients"></tbody>
       </table>
     </div>
@@ -105,8 +105,8 @@
     <div class="card">
       <h2>Scenarios — where the toll applies</h2>
       <table>
-        <thead><tr><th>Escenario</th><th class="num">Req</th><th class="num">Toll</th>
-          <th class="num">Bloq</th><th style="width:32%">Actividad</th></tr></thead>
+        <thead><tr><th>Scenario</th><th class="num">Req</th><th class="num">Toll</th>
+          <th class="num">Blocked</th><th style="width:32%">Activity</th></tr></thead>
         <tbody id="scenarios"></tbody>
       </table>
     </div>
@@ -114,7 +114,7 @@
 
   <div class="card">
     <div class="bar-t">
-      <h2>Eventos</h2>
+      <h2>Events</h2>
       <div class="spacer"></div>
       <div class="filters" style="margin:0">
         <span>Filter</span>
@@ -126,14 +126,18 @@
           <option value="dwell">dwell</option>
           <option value="pow">pow</option>
           <option value="llm">llm</option>
+          <option value="bypassed">bypassed</option>
+          <option value="attestation-required">attestation</option>
+          <option value="reproof">reproof</option>
         </select>
+        <select id="fMode"><option value="">all modes</option><option value="protected">protected</option><option value="unprotected">unprotected</option></select>
         <select id="fScenario"><option value="">all scenarios</option></select>
         <input id="fText" placeholder="filter ip, path, signal…" style="width:180px">
       </div>
     </div>
     <table>
-      <thead><tr><th>Hora</th><th>Decisión</th><th>Señal</th><th>Cliente</th><th>Método</th>
-        <th>Ruta</th><th>Escenario</th><th class="num">Detalle</th></tr></thead>
+      <thead><tr><th>Time</th><th>Decision</th><th>Signal</th><th>Client</th><th>Method</th>
+        <th>Path</th><th>Scenario</th><th>Mode</th><th class="num">Detail</th></tr></thead>
       <tbody id="events"></tbody>
     </table>
     <div class="legend">
@@ -199,13 +203,13 @@ function render() {
   const total = (c.promptTokens || 0) + (c.completionTokens || 0);
 
   $('kpis').innerHTML = [
-    ['requests', c.requests || 0, 'consultas totales', ''],
-    ['toll triggered', c.tollTriggered || 0, 'activaron TollAI', 'purple'],
-    ['blocked', c.blocked || 0, 'agentes bloqueados', 'red'],
-    ['admitted', c.admitted || 0, 'dejaron pasar', 'green'],
-    ['pow paid', c.powPaid || 0, 'sesiones Prof-of-Work', 'purple'],
-    ['dwell deferred', c.dwellDeferred || 0, 'POST esperando', 'amber'],
-    ['llm calls', c.llmCalls || 0, 'invocaciones de modelo', 'blue'],
+    ['requests', c.requests || 0, 'total requests', ''],
+    ['toll triggered', c.tollTriggered || 0, 'activated TollAI', 'purple'],
+    ['blocked', c.blocked || 0, 'agents blocked', 'red'],
+    ['admitted', c.admitted || 0, 'allowed through', 'green'],
+    ['pow paid', c.powPaid || 0, 'Proof-of-Work sessions', 'purple'],
+    ['dwell deferred', c.dwellDeferred || 0, 'POST waiting for dwell', 'amber'],
+    ['llm calls', c.llmCalls || 0, 'model invocations', 'blue'],
     ['total tokens', total, `${c.promptTokens || 0} prompt + ${c.completionTokens || 0} completion`, 'blue']
   ].map(([l, v, s, cls]) =>
     `<div class="kpi"><div class="l">${l}</div><div class="v ${cls}">${v}</div><div class="s">${s}</div></div>`
@@ -217,11 +221,12 @@ function render() {
       <td class="muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
           title="${(r.userAgent || '').replace(/"/g, '')}">${(r.userAgent || '').slice(0, 34)}</td>
       <td class="num">${r.requests}</td>
+      <td class="num">${r.llmCalls || 0}</td>
       <td class="num">${r.triggered}</td>
       <td class="num" style="color:var(--red)">${r.blocked}</td>
       <td class="num">${r.promptTokens + r.completionTokens}</td>
     </tr>`).join('')
-    : '<tr><td colspan="6" class="empty">No queries yet</td></tr>';
+    : '<tr><td colspan="7" class="empty">No queries yet</td></tr>';
 
   const maxReq = Math.max(1, ...snapshot.scenarios.map(s => s.requests));
   $('scenarios').innerHTML = snapshot.scenarios.length ? snapshot.scenarios.map(s => `
@@ -235,11 +240,13 @@ function render() {
     : '<tr><td colspan="5" class="empty">No scenarios yet</td></tr>';
 
   const fd = $('fDecision').value;
+  const fm = $('fMode').value;
   const fs = $('fScenario').value;
   const ft = $('fText').value.trim().toLowerCase();
 
   const rows = snapshot.events.filter(e => {
     if (fd && (e.decision || '') !== fd) return false;
+    if (fm && e.mode !== fm) return false;
     if (fs && e.scenario !== fs) return false;
     if (ft) {
       const hay = `${e.ip || ''} ${e.path || ''} ${e.signal || ''} ${e.client || ''} ${e.scenario || ''}`.toLowerCase();
@@ -260,10 +267,11 @@ function render() {
       <td class="muted">${e.method || '—'}</td>
       <td class="muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.path || '—'}</td>
       <td>${e.scenario || '—'}</td>
+      <td>${e.mode || '—'}</td>
       <td class="num muted">${detailOf(e)}</td>
     </tr>`;
   }).join('')
-    : '<tr><td colspan="8" class="empty">Nothing matches the filter</td></tr>';
+    : '<tr><td colspan="9" class="empty">Nothing matches the filter</td></tr>';
 }
 
 function fillScenarioFilter() {
@@ -300,6 +308,7 @@ $('clear').onclick = async () => {
   poll();
 };
 $('fDecision').onchange = render;
+$('fMode').onchange = render;
 $('fScenario').onchange = render;
 $('fText').oninput = render;
 </script>

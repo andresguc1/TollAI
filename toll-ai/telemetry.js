@@ -84,6 +84,7 @@ class Telemetry {
           requests: 0,
           blocked: 0,
           triggered: 0,
+          llmCalls: 0,
           promptTokens: 0,
           completionTokens: 0,
           lastSeen: e.at
@@ -94,6 +95,8 @@ class Telemetry {
         row.requests += 1;
         if (e.decision === 'blocked') row.blocked += 1;
         if (e.decision && !['transparent', 'admitted', 'bypassed'].includes(e.decision)) row.triggered += 1;
+      } else {
+        row.llmCalls += 1;
       }
       row.promptTokens += e.promptTokens || 0;
       row.completionTokens += e.completionTokens || 0;
