@@ -602,6 +602,16 @@ app.post('/unprotected/trading/order', (req, res) => {
   });
 });
 
+app.get('/unprotected/trading/order', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'trading-portal',
+    message: 'Order book/order endpoint (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'trading-portal', bypassed: true }
+  });
+});
+
+
 
 // Root - Dashboard
 app.get('/', (req, res) => {
