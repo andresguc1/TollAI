@@ -78,6 +78,8 @@
   .filters button{width:auto;margin:0;padding:5px 11px;font:600 11px/1 inherit;border-radius:999px;
     background:transparent;border:1px solid var(--line);color:var(--dim);cursor:pointer}
   .filters button.on{background:var(--purple);border-color:var(--purple);color:#fff}
+  .filters button.clear-btn{background:transparent;border-color:var(--amber);color:var(--amber)}
+  .filters button.clear-btn:hover{background:var(--amber);color:#000}
   .ledger{display:flex;gap:15px;font:600 11.5px/1 ui-monospace,monospace}
   .ledger i{font-style:normal;color:var(--dim);margin-right:5px}
   .ledger .c{color:var(--purple)} .ledger .b{color:var(--green)} .ledger .p{color:var(--amber)}
@@ -169,6 +171,7 @@
       <div class="filters">
         <button id="fAll" class="on">All</button>
         <button id="fToll">TollAI only</button>
+        <button id="fClear" class="clear-btn">Clear</button>
       </div>
     </div>
     <div id="logWrap">
@@ -308,8 +311,18 @@ function setFilter(mode) {
   log.innerHTML = '';
   poll();
 }
+function clearLog() {
+  seen = 0;
+  log.innerHTML = '';
+  $('nChal').textContent = '0';
+  $('nBlocked').textContent = '0';
+  $('nPassed').textContent = '0';
+  $('lastid').textContent = '';
+  poll();
+}
 $('fAll').onclick = () => setFilter('all');
 $('fToll').onclick = () => setFilter('toll');
+$('fClear').onclick = clearLog;
 
 async function poll() {
   try {
