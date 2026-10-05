@@ -29,27 +29,70 @@ Gap is structural, not implementation-dependent.
 
 ## 🏗️ Architecture
 
+TollAI never asks a human to solve a puzzle. The toll is paid **under the hood**,
+in CPU, and only becomes visible when the client does not look like a browser.
+
 ```
-┌─────────────────────┐     433 Challenge      ┌─────────────────────────┐
-│  AUTONOMOUS AGENT   │ ◄────────────────────── │      TOLLAI SERVER      │
-│  (Attacker)         │                         │  (Victim + Middleware)  │
-│                     │ ── Response + Token ──► │                         │
-└─────────────────────┘     x-ai-proof          └───────────┬─────────────┘
-       │                            x-challenge-response     │
-       ▼                                                       ▼
-┌─────────────────────┐                            ┌─────────────────────────┐
-│  MACHINE SPEED      │                            │  TEMPORAL ANALYSIS      │
-│  (< 500ms)          │                            │  responseTime = now -   │
-│                     │                            │  timestamp              │
-└─────────────────────┘                            └───────────┬─────────────┘
-                                                                │
-                                                         ┌──────┴──────┐
-                                                         ▼             ▼
-                                                      < 1500ms     ≥ 1500ms
-                                                         │             │
-                                                         ▼             ▼
-                                                      🚫 403       ✅ 200 OK
-                                                      BLOCKED      ACCESS
+                        HUMAN BROWSER                        AUTONOMOUS AGENT
+                                │                                      │
+                    GET /news (Accept: text/html)             GET /api/news (axios)
+                                │                                      │
+                    ┌───────────▼────────────┐             ┌───────────▼────────────┐
+                    │ no TollAI session yet  │             │  no JS, no browser     │
+                    └───────────┬────────────┘             └───────────┬────────────┘
+                                │                                      │
+                    HTTP 200 "shell" (spinner)               HTTP 433 reasoning
+                    + tollai-client.js                        + 1500 ms threshold
+                                │                                      │
+                    ┌───────────▼────────────┐             ┌───────────▼────────────┐
+                    │ invisible SHA-256 PoW   │             │ answers in ~5 ms       │
+                    │ ~16,384 hashes (~450ms) │             └───────────┬────────────┘
+                    └───────────┬────────────┘                         │
+                    ┌───────────▼────────────┐                         │
+                    │ POST /tollai/verify    │                         │
+                    │ → HttpOnly cookie       │                         │
+                    └───────────┬────────────┘                         │
+                                │                            ┌─────────▼─────────┐
+                    ┌───────────▼────────────┐                │ 🚫 403            │
+                    │ window.fetch patched   │                │ MACHINE_SPEED     │
+                    │ /api/* transparent     │                └───────────────────┘
+                    │ GET  → instant         │
+                    │ POST → requires dwell  │
+                    └───────────────────────┘
+```
+
+### The four layers
+
+| Layer | What it measures | Who pays | Human cost |
+|-------|------------------|----------|------------|
+| **1. Attestation (PoW)** | CPU: SHA-256 with `difficulty` leading zero bits | Any JS browser | ~450 ms, invisible |
+| **2. Session** | `HttpOnly` cookie bound to IP, 15 min sliding TTL | Once per session | 0 |
+| **3. Dwell** | Real time spent looking at the page (`/tollai/dwell`) | Mutations (POST) only | Natural reading time |
+| **4. Anti-burst** | Requests per window + per-session quota | Chained scrapers | 0 |
+
+`GET` requests never require dwell: reading is instant. `POST` requests (transfer,
+post, place an order, trigger ASR) require `minDwellMs` to have accumulated.
+
+### Why PoW and not "please wait N seconds"
+
+A bot **can** sleep for 2 seconds. It cannot avoid paying 16,384 hashes. That is
+why the 1500 ms threshold is only the last layer for JavaScript-less clients, and
+why the real defence is that **a session cannot be obtained without running the
+client**.
+
+### Protocol endpoints (never tolled)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/tollai/challenge` | GET | Issue a single-use PoW challenge (30 s TTL) |
+| `/tollai/verify` | POST | Verify the nonce and mint the session cookie |
+| `/tollai/dwell` | POST | Accumulate visible time on the page (1000 ms cap per beat) |
+| `/tollai/status` | GET | Active sessions and pending challenges |
+
+### Environment variables
+
+```bash
+TOLLAI_POW_DIFFICULTY=14   # 14 ≈ 450 ms in a browser; 16 ≈ 1.8 s
 ```
 
 ## 📁 Project Structure
@@ -57,13 +100,20 @@ Gap is structural, not implementation-dependent.
 ```
 tollai-poc/
 ├── package.json                 # Dependencies & scripts
-├── server.js                    # Victim server with 4 protected scenarios
+├── server.js                    # Express: 12 scenarios + TollAI protocol routes
 ├── toll-ai/
-│   └── middleware.js            # Core TollAI Express middleware
+│   ├── middleware.js            # Cookie, fingerprint, dwell, burst, 433 fallback
+│   └── pow.js                   # ProofOfWork + SessionStore
 ├── attackers/
-│   └── agent-simulator.js       # Autonomous agent attack simulator
+│   └── agent-simulator.js       # Autonomous agent simulator (12 scenarios)
+├── test/
+│   ├── toll-flows.js            # 9 checks: human vs agent, end to end
+│   ├── toll-client.js           # 14 checks: real client in a browser sandbox
+│   └── restart-server.sh        # Clean detached start for the test suites
 └── public/
-    └── tollai-dashboard.html    # SOC Dashboard (served at /)
+    ├── tollai-client.js         # JS SHA-256, PoW, fetch patch, dwell heartbeat
+    ├── tollai-dashboard.html    # SOC dashboard (served at /)
+    └── *-portal.html            # The 12 portals
 ```
 
 ## 🚀 Quick Start
@@ -240,10 +290,29 @@ The podcast case is the only one where the exfiltrated payload is *derived*: the
 downloads raw audio and reconstructs the transcript with local speech-to-text, so transcript
 licensing and content filters never fire.
 
-## 🧪 Manual Testing
+## 🧪 Testing
 
 ```bash
-# 1. Get challenge
+npm start                 # terminal 1
+
+npm run test:flows        # 9 checks: human vs agent, end to end
+npm run test:client       # 14 checks: the real browser client in a sandbox
+npm test                  # 12/12 attack campaign (must stay at 100%)
+npm run test:all          # everything
+
+./test/restart-server.sh  # clean detached restart if a suite races a stale process
+```
+
+Expected: `9/9`, `14/14` and `12/12 blocked · 100% effectiveness`.
+
+The client suite runs `public/tollai-client.js` inside a `vm` sandbox with a fake
+DOM and a real HTTP stack, so the actual bootstrap path is exercised — including
+the fetch-patch recursion and the dwell retry loop that would otherwise hang.
+
+### Manual testing the agent path
+
+```bash
+# 1. Get challenge (no browser headers => agent path)
 curl -v http://localhost:3000/api/news
 
 # 2. Solve manually (take > 1.5 seconds)
@@ -257,11 +326,19 @@ curl -v http://localhost:3000/api/news \
 
 ## ⚠️ Known Limitations (PoC)
 
-- **In-memory storage** — Use Redis/DB for production
-- **Deterministic challenges** — Add cryptographic entropy
-- **Single IP reputation** — Add behavioral baselining
-- **Fixed threshold** — Consider adaptive ML-based thresholds
-- **No TLS** — Deploy behind reverse proxy with TLS termination
+- **In-memory storage** — sessions live in a `Map`, so they do not survive a
+  restart and do not work across multiple processes. Use Redis for production.
+- **Slow, LLM-backed bot** — the reasoning fallback catches *machine-speed*
+  agents. An adaptive agent that deliberately waits past the 1500 ms threshold can
+  answer correctly and pass. `npm test` therefore models a real scraper
+  (machine-speed, local solver); run `USE_OLLAMA=true npm run attack` to watch a
+  slow LLM agent slip through the timing heuristic. The layers that still catch
+  sustained automation are dwell, burst, quota and session/IP binding.
+- **Reasoning challenges are deterministic** — add cryptographic entropy.
+- **Single IP reputation** — add behavioral baselining
+- **No TLS** — deploy behind a reverse proxy with TLS termination
+- **Dwell is client-reported** — capped at 1000 ms per heartbeat server-side, but
+  a modified client can still under-report. Treat it as friction, not proof.
 
 ## 📚 References
 

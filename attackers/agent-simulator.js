@@ -3,7 +3,9 @@ const axios = require('axios');
 const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://100.100.110.13:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'gemma4:e2b-it-qat';
-const USE_OLLAMA = process.env.USE_OLLAMA !== 'false';
+// Machine-speed by default: a scraper does not deliberate, it fires.
+// Opt in with USE_OLLAMA=true to model a slow, LLM-backed adaptive agent.
+const USE_OLLAMA = process.env.USE_OLLAMA === 'true';
 
 class AgentSimulator {
   constructor() {
@@ -303,8 +305,13 @@ Answer:`;
     console.log('█'.repeat(60) + '\n');
 
     for (const scenario of scenarios) {
-      const result = await this.attackScenario(scenario);
-      this.results.push(result);
+      let result;
+      try {
+        result = await this.attackScenario(scenario);
+      } catch (err) {
+        result = { scenario, blocked: false, reason: `simulator error: ${err.message}` };
+      }
+      this.results.push(result || { scenario, blocked: false, reason: 'no result' });
       
       if (scenario !== scenarios[scenarios.length - 1]) {
         await new Promise(r => setTimeout(r, 1000));
@@ -323,6 +330,7 @@ Answer:`;
     let passed = 0;
     
     for (const r of this.results) {
+      if (!r) { console.log('  ⚠️  UNKNOWN  | (scenario produced no result)'.padEnd(0)); continue; }
       const status = r.blocked ? '🛑 BLOCKED' : '✅ PASSED';
       const reason = r.reason || 'unknown';
       const time = r.responseTime ? `${r.responseTime}ms` : 'N/A';

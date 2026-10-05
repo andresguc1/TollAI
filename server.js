@@ -44,40 +44,183 @@ async function getOllamaResponse(message, model = "gemma4:26b") {
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const TollAI = require('./toll-ai/middleware');
 
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Minimal cookie parser — the session token is the only cookie we read.
+app.use((req, res, next) => {
+  req.cookies = {};
+  const header = req.headers.cookie;
+  if (header) {
+    for (const part of header.split(';')) {
+      const idx = part.indexOf('=');
+      if (idx < 0) continue;
+      const key = part.slice(0, idx).trim();
+      try {
+        req.cookies[key] = decodeURIComponent(part.slice(idx + 1).trim());
+      } catch {
+        req.cookies[key] = part.slice(idx + 1).trim();
+      }
+    }
+  }
+  next();
+});
+
+const CLIENT_TAG = '<script src="/tollai-client.js"></script>';
+
+// Every page that can reach a tolled endpoint ships the client, so proof of
+// work is paid once in the background and the UI never blocks on it.
+function serveTolledPage(req, res, file) {
+  if (req.tollNeedsAttestation) return sendAttestationShell(req, res, req.tollScenario);
+
+  const html = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8');
+  res.set('Cache-Control', 'no-store');
+  res.send(html.includes('</body>') ? html.replace('</body>', `${CLIENT_TAG}\n</body>`) : html + CLIENT_TAG);
+}
+
+function sendAttestationShell(req, res, scenario) {
+  res.set('Cache-Control', 'no-store');
+  res.send(`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TollAI — Verifying</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:#0d1117;color:#e6edf3;font:400 15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .box{text-align:center;max-width:340px;padding:0 20px}
+  .ring{width:34px;height:34px;margin:0 auto 18px;border:3px solid #30363d;border-top-color:#8250df;
+    border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  h1{font-size:15px;font-weight:600;margin:0 0 6px}
+  p{margin:0;font-size:12.5px;color:#8b949e}
+  code{color:#d2a8ff;font-size:11.5px}
+</style></head>
+<body>
+  <div class="box">
+    <div class="ring"></div>
+    <h1>TollAI</h1>
+    <p>Paying the cognitive toll${scenario ? ` for <code>${scenario}</code>` : ''}…</p>
+  </div>
+  <script>
+    window.TOLLAI_RELOAD_URL = ${JSON.stringify(req.originalUrl)};
+  </script>
+  ${CLIENT_TAG}
+  <script>
+    window.TollAI.establish().then(function () { location.reload(); });
+  </script>
+</body></html>`);
+}
 
 const tollAI = new TollAI({
   minResponseTime: 1500,
   challengeTTL: 60000,
-  onAIAgentDetected: (alertData) => {
-    console.log('\n' + '█'.repeat(80));
-    console.log('██  ╔════════════════════════════════════════════════════════════════════════════╗  ██');
-    console.log('██  ║                          🚨 TOLLAI SOC ALERT 🚨                              ║  ██');
-    console.log('██  ╠═════════════════════════════════════════════════════════════════════════════════╣  ██');
-    console.log('██  ║  DETECTED: Autonomous AI Agent / Automated Bot                               ║  ██');
-    console.log('██  ║  ────────────────────────────────────────────────────────────────────────────  ║  ██');
-    console.log(`██  ║  🎯 Attacker IP:        ${alertData.clientIP.padEnd(53)}║  ██`);
-    console.log(`██  ║  📋 Scenario:           ${alertData.scenario.padEnd(53)}║  ██`);
-    console.log(`██  ║  ⚡ Response Time:      ${alertData.responseTime} ms${' '.repeat(47 - String(alertData.responseTime).length)}║  ██`);
-    console.log(`██  ║  📏 Threshold:          ${alertData.threshold} ms${' '.repeat(47 - String(alertData.threshold).length)}║  ██`);
-    console.log(`██  ║  📊 Challenge Type:     ${alertData.challengeType.padEnd(53)}║  ██`);
-    console.log(`██  ║  🕐 Timestamp:          ${alertData.timestamp.padEnd(53)}║  ██`);
-    console.log(`██  ║  🌐 User-Agent:         ${(alertData.userAgent || 'unknown').substring(0, 53).padEnd(53)}║  ██`);
-    console.log(`██  ║  🆔 Challenge ID:       ${alertData.challengeId.substring(0, 53).padEnd(53)}║  ██`);
-    console.log('██  ║  ────────────────────────────────────────────────────────────────────────────  ║  ██');
-    console.log('██  ║  🛡️  ACTION: ACCESS BLOCKED - HTTP 403 (Autonomous Agent Mitigation)         ║  ██');
-    console.log('██  ║  📋 MITRE ATT&CK: T1588.002 (Capabilities: Tool Acquisition)                 ║  ██');
-    console.log('██  ╚═══════════════════════════════════════════════════════════════════════════════╝  ██');
-    console.log('█'.repeat(80));
-    console.log('█'.repeat(80) + '\n');
+  powDifficulty: parseInt(process.env.TOLLAI_POW_DIFFICULTY || '14', 10),
+  onSessionIssued: (data) => {
+    console.log(`   ✓ TollAI session issued  ${data.clientIP}  ${data.workMs}ms work (difficulty ${data.difficulty})`);
+  },
+  onAIAgentDetected: (a) => {
+    const REASONS = {
+      MACHINE_SPEED: 'Machine-speed challenge response',
+      BURST_RATE: 'Request burst beyond human interaction rate'
+    };
+    const row = (label, value) =>
+      `██  ║  ${label.padEnd(20)}${String(value).substring(0, 53).padEnd(53)}║  ██`;
+
+    console.log('\n' + '\u2588'.repeat(80));
+    console.log('\u2588\u2588  \u2550' + '\u2550'.repeat(70) + '\u2550  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551                          \ud83d\udea8 TOLLAI SOC ALERT \ud83d\udea8                              \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u2560' + '\u2550'.repeat(70) + '\u2557  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551  DETECTED: Autonomous AI Agent / Automated Bot                               \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551  \u2500'.repeat(44) + '\u2500\u2500\u2500\u2500  \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551  ' + REASONS[a.reason] + '                              \u2551  \u2588\u2588');
+    console.log(row('\ud83c\udfaf Attacker IP:', a.clientIP));
+    console.log(row('\ud83d\udccb Scenario:', a.scenario));
+    if (a.reason === 'MACHINE_SPEED') {
+      console.log('\u2588\u2588  \u2551  \u26a1 Response Time:      ' + String(a.responseTime).padEnd(8) + 'ms' + ' '.repeat(42) + '\u2551  \u2588\u2588');
+      console.log('\u2588\u2588  \u2551  \ud83d\udccf Threshold:          ' + String(a.threshold).padEnd(8) + 'ms' + ' '.repeat(42) + '\u2551  \u2588\u2588');
+    }
+    if (a.detail) console.log(row('\ud83d\udcc5 Detail:', a.detail));
+    console.log(row('\ud83d\udcca Signal Type:', a.challengeType || 'behavioural'));
+    console.log(row('\ud83d\udd50 Timestamp:', a.timestamp));
+    console.log(row('\ud83c\udf10 User-Agent:', a.userAgent));
+    console.log(row('\ud83c\udf10 Accept-Lang:', a.acceptLanguage));
+    console.log(row('\ud83c\udd11 Reference:', a.challengeId || '-'));
+    console.log('\u2588\u2588  \u2551  ' + '\u2500'.repeat(44) + '\u2500\u2500\u2500\u2500  \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551  \ud83d\udee1\ufe0f  ACTION: ACCESS BLOCKED - HTTP 403 (Autonomous Agent Mitigation)         \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u2551  \ud83d\udccb MITRE ATT&CK: T1588.002 (Capabilities: Tool Acquisition)                 \u2551  \u2588\u2588');
+    console.log('\u2588\u2588  \u255d' + '\u2550'.repeat(70) + '\u255a  \u2588\u2588');
+    console.log('\u2588'.repeat(80) + '\n');
   }
+});
+
+// ===== TollAI protocol endpoints (never tolled) =====
+// The browser pays the toll here, silently, once per session.
+app.get('/tollai/challenge', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(tollAI.issueProofChallenge());
+});
+
+app.post('/tollai/verify', (req, res) => {
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  const { challenge, nonce } = req.body || {};
+
+  const result = tollAI.verifyProof({ challenge, nonce });
+
+  if (!result.ok) {
+    return res.status(403).json({
+      verified: false,
+      code: result.reason,
+      achieved_bits: result.achieved,
+      required_bits: result.difficulty || null
+    });
+  }
+
+  const token = tollAI.mintSession(clientIP, {
+    workMs: result.workMs,
+    difficulty: result.difficulty,
+    userAgent: req.headers['user-agent'] || 'unknown'
+  });
+
+  res.cookie('tollai_session', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 15 * 60 * 1000
+  });
+
+  res.json({ verified: true, work_ms: result.workMs, difficulty: result.difficulty });
+});
+
+app.get('/tollai/status', (req, res) => {
+  res.json({ status: 'ok', ...tollAI.stats });
+});
+
+// Dwell heartbeat: the page reports that a human is actually looking at it.
+// Charged against the session, capped server-side, and invisible to the user.
+app.post('/tollai/dwell', (req, res) => {
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  const token = req.cookies && req.cookies.tollai_session;
+
+  if (!token) return res.status(401).json({ ok: false, code: 'NO_SESSION' });
+
+  const { ok, session } = tollAI.sessions.get(token, clientIP);
+  if (!ok) return res.status(401).json({ ok: false, code: session.reason });
+
+  const dwellMs = tollAI.sessions.markDwell(session);
+  tollAI.sessions.touch(token, session);
+
+  res.json({
+    ok: true,
+    dwell_ms: Math.round(dwellMs),
+    required_ms: tollAI.minDwellMs,
+    settled: dwellMs >= tollAI.minDwellMs
+  });
 });
 
 // Mode detection middleware - checks for x-tollai-mode header or query param
@@ -188,15 +331,15 @@ app.post('/api/chat', conditionalTollAI('corporate-chatbot'), async (req, res) =
 
 // ===== PROTECTED PAGE ENDPOINTS (with TollAI) =====
 app.get('/news', conditionalTollAI('news-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'news-portal.html'));
+  serveTolledPage(req, res, 'news-portal.html');
 });
 
 app.get('/forum', conditionalTollAI('social-forum'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'social-forum.html'));
+  serveTolledPage(req, res, 'social-forum.html');
 });
 
 app.get('/git', conditionalTollAI('git-repository'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'git-repository.html'));
+  serveTolledPage(req, res, 'git-repository.html');
 });
 
 // ===== UNPROTECTED DIRECT ACCESS ENDPOINTS (no TollAI) =====
@@ -761,9 +904,10 @@ app.post('/unprotected/podcast/transcript', (req, res) => {
 
 
 
-// Root - Dashboard
+// Root - Dashboard (not tolled itself, but ships the client so its API
+// calls can pay the toll transparently)
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'tollai-dashboard.html'));
+  serveTolledPage(req, res, 'tollai-dashboard.html');
 });
 
 app.get('/health', (req, res) => {
@@ -838,7 +982,7 @@ process.on('SIGINT', () => {
 
 // Corporate Chatbot page endpoints
 app.get('/chat', conditionalTollAI('corporate-chatbot'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'corporate-chatbot.html'));
+  serveTolledPage(req, res, 'corporate-chatbot.html');
 });
 app.get('/unprotected/chat-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'corporate-chatbot.html'));
@@ -846,7 +990,7 @@ app.get('/unprotected/chat-page', (req, res) => {
 
 
 app.get('/paper', conditionalTollAI('paper-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'paper-portal.html'));
+  serveTolledPage(req, res, 'paper-portal.html');
 });
 app.get('/unprotected/paper-portal', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'paper-portal.html'));
@@ -855,7 +999,7 @@ app.get('/unprotected/paper-portal', (req, res) => {
 
 
 app.get('/gallery', conditionalTollAI('image-gallery'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'image-gallery.html'));
+  serveTolledPage(req, res, 'image-gallery.html');
 });
 app.get('/unprotected/gallery-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'image-gallery.html'));
@@ -864,7 +1008,7 @@ app.get('/unprotected/gallery-page', (req, res) => {
 
 
 app.get('/video', conditionalTollAI('video-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'video-portal.html'));
+  serveTolledPage(req, res, 'video-portal.html');
 });
 app.get('/unprotected/video-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'video-portal.html'));
@@ -873,7 +1017,7 @@ app.get('/unprotected/video-page', (req, res) => {
 
 
 app.get('/finance', conditionalTollAI('finance-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'finance-portal.html'));
+  serveTolledPage(req, res, 'finance-portal.html');
 });
 app.get('/unprotected/finance-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'finance-portal.html'));
@@ -882,7 +1026,7 @@ app.get('/unprotected/finance-page', (req, res) => {
 
 
 app.get('/health-portal', conditionalTollAI('health-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'health-portal.html'));
+  serveTolledPage(req, res, 'health-portal.html');
 });
 app.get('/unprotected/health-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'health-portal.html'));
@@ -891,11 +1035,11 @@ app.get('/unprotected/health-page', (req, res) => {
 
 
 app.get('/ecommerce', conditionalTollAI('ecommerce-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'ecommerce-portal.html'));
+  serveTolledPage(req, res, 'ecommerce-portal.html');
 });
 
 app.get('/trading', conditionalTollAI('trading-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'trading-portal.html'));
+  serveTolledPage(req, res, 'trading-portal.html');
 });
 
 app.get('/unprotected/ecommerce-page', (req, res) => {
@@ -906,7 +1050,7 @@ app.get('/unprotected/trading-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'trading-portal.html'));
 });
 app.get('/podcast', conditionalTollAI('podcast-portal'), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'podcast-portal.html'));
+  serveTolledPage(req, res, 'podcast-portal.html');
 });
 app.get('/unprotected/podcast-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'podcast-portal.html'));

@@ -1,13 +1,36 @@
 const crypto = require('crypto');
+const { ProofOfWork, SessionStore } = require('./pow');
+
+const BROWSER_UA = /Mozilla|Chrome|Safari|Firefox|Edg|OPR\//i;
 
 class TollAI {
   constructor(options = {}) {
-    this.challengeStore = new Map();
     this.minResponseTime = options.minResponseTime || 1500;
+    this.minDwellMs = options.minDwellMs === undefined ? 1500 : options.minDwellMs;
     this.challengeTTL = options.challengeTTL || 60000;
     this.onAIAgentDetected = options.onAIAgentDetected || (() => {});
+    this.onSessionIssued = options.onSessionIssued || (() => {});
+
+    // The toll is priced in CPU, not in "answer this question": a bot can
+    // always sleep for a requested delay, but it cannot avoid paying hashes.
+    this.pow = new ProofOfWork({
+      difficulty: options.powDifficulty || 14,
+      ttl: options.powTTL || 30000
+    });
+
+    // One PoW buys a session. Humans browse inside it; scrapers must repay it.
+    this.sessions = new SessionStore({
+      ttl: options.sessionTTL || 15 * 60 * 1000,
+      rateWindowMs: options.rateWindowMs || 10000,
+      rateLimit: options.rateLimit || 30,
+      quota: options.sessionQuota || 120
+    });
+
+    this.challengeStore = new Map();
     this.cleanupInterval = setInterval(() => this._cleanup(), 30000);
   }
+
+  /* ---------- challenge generation (fallback path) ---------- */
 
   _generateChallenge(scenario) {
     const challengeTypes = [
@@ -28,7 +51,7 @@ class TollAI {
     const operators = ['+', '-', '*'];
     const op1 = operators[Math.floor(Math.random() * operators.length)];
     const op2 = operators[Math.floor(Math.random() * operators.length)];
-    
+
     let expression, answer;
     if (op1 === '*' && op2 === '*') {
       expression = `(${a} * ${b}) + ${c}`;
@@ -43,7 +66,7 @@ class TollAI {
       expression = `${a} ${op1} ${b} ${op2} ${c}`;
       answer = eval(expression);
     }
-    
+
     return {
       type: 'math',
       question: `Calculate the result of: ${expression}`,
@@ -104,10 +127,44 @@ class TollAI {
     return templates[Math.floor(Math.random() * templates.length)];
   }
 
+  _validateResponse(challenge, response) {
+    const normalizedResponse = response.toString().trim().toLowerCase();
+    const normalizedAnswer = challenge.answer.toString().trim().toLowerCase();
+
+    if (challenge.options) {
+      return challenge.options.some(opt => opt.toLowerCase() === normalizedResponse);
+    }
+
+    return normalizedResponse === normalizedAnswer;
+  }
+
+  /* ---------- attestation ---------- */
+
+  // Can this client execute JavaScript and hold state? Browsers can; HTTP
+  // libraries cannot. This is the only question the human never has to answer.
+  _looksLikeBrowser(req) {
+    const h = req.headers;
+    const signals = {
+      ua: BROWSER_UA.test(h['user-agent'] || ''),
+      acceptLanguage: /\S/.test(h['accept-language'] || ''),
+      secFetch: !!(h['sec-fetch-mode'] || h['sec-fetch-site'] || h['sec-fetch-dest']),
+      secChUa: !!h['sec-ch-ua'],
+      acceptHtml: /\btext\/html\b/.test(h['accept'] || '')
+    };
+    const score = Object.values(signals).filter(Boolean).length;
+    return signals.ua && score >= 3;
+  }
+
+  _wantsHtml(req) {
+    return /\btext\/html\b/.test(req.headers.accept || '') && !/\bapplication\/json\b/.test(req.headers.accept || '');
+  }
+
+  /* ---------- core ---------- */
+
   _createChallengeToken(challenge, clientIP) {
     const challengeId = crypto.randomBytes(16).toString('hex');
     const timestamp = Date.now();
-    
+
     this.challengeStore.set(challengeId, {
       challenge,
       timestamp,
@@ -115,157 +172,279 @@ class TollAI {
       attempts: 0,
       solved: false
     });
-    
+
     return { challengeId, timestamp };
   }
 
-  _cleanup() {
-    const now = Date.now();
-    for (const [id, data] of this.challengeStore.entries()) {
-      if (now - data.timestamp > this.challengeTTL || data.solved) {
-        this.challengeStore.delete(id);
-      }
-    }
+  issueProofChallenge() {
+    return this.pow.issue();
+  }
+
+  verifyProof({ challenge, nonce }) {
+    return this.pow.verify(challenge, nonce);
+  }
+
+  mintSession(clientIP, meta) {
+    const token = this.sessions.mint(clientIP, meta);
+    this.onSessionIssued({ clientIP, ...meta });
+    return token;
+  }
+
+  _alert(req, scenario, clientIP, detail) {
+    this.onAIAgentDetected({
+      clientIP,
+      scenario,
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'] || 'unknown',
+      acceptLanguage: req.headers['accept-language'] || 'none',
+      ...detail
+    });
   }
 
   middleware() {
     return (req, res, next) => {
       const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
       const scenario = req.tollScenario || 'generic';
-      const challengeToken = req.headers['x-ai-proof'];
-      const challengeResponse = req.headers['x-challenge-response'];
+      const token = req.cookies && req.cookies.tollai_session;
 
-      if (!challengeToken) {
-        const challengeData = this._generateChallenge(scenario);
-        const { challengeId, timestamp } = this._createChallengeToken(challengeData, clientIP);
-        
-        return res.status(433).json({
-          error: 'Challenge Required',
-          message: 'Cognitive toll required for autonomous agent detection',
-          challenge_id: challengeId,
-          challenge: challengeData.question,
-          challenge_type: challengeData.type || 'reasoning',
-          scenario: scenario,
-          timestamp,
-          expires_in: this.challengeTTL
-        });
+      // 1. Valid session -> transparent pass, no puzzle, no friction.
+      if (token) {
+        const { ok, session } = this.sessions.get(token, clientIP);
+
+        if (ok) {
+          const { burst, quotaExceeded } = this.sessions.registerRequest(session);
+
+          if (burst) {
+            this.sessions.revoke(token);
+            this._alert(req, scenario, clientIP, {
+              reason: 'BURST_RATE',
+              responseTime: 0,
+              threshold: this.sessions.rateLimit,
+              challengeType: 'behavioural',
+              challengeId: token.slice(0, 16),
+              detail: `${this.sessions.rateLimit}+ requests within ${this.sessions.rateWindowMs}ms`
+            });
+            return res.status(403).json({
+              error: 'AI Agent Detected',
+              message: 'Request burst exceeds human interaction rate - Autonomous agent blocked',
+              code: 'AI_AGENT_DETECTED',
+              reason: 'BURST_RATE',
+              scenario
+            });
+          }
+
+          if (quotaExceeded) {
+            return res.status(428).json({
+              error: 'Proof of Work Required',
+              message: 'Session quota exhausted - new proof of work required',
+              code: 'REPROOF_REQUIRED',
+              scenario
+            });
+          }
+
+          // 2b. Dwell: reading is instant, acting requires having been here.
+          // A bot that solves PoW and immediately fires mutations never dwells.
+          const mutating = req.method !== 'GET' && req.method !== 'HEAD';
+          if (mutating && session.dwellMs < this.minDwellMs) {
+            const remaining = this.minDwellMs - session.dwellMs;
+            return res.status(428).json({
+              error: 'Dwell Required',
+              message: 'Stay on the page before submitting actions',
+              code: 'DWELL_REQUIRED',
+              retry_after_ms: Math.min(remaining, 1000),
+              dwell_ms: Math.round(session.dwellMs),
+              required_ms: this.minDwellMs,
+              scenario
+            });
+          }
+
+          this.sessions.touch(token, session);
+          req.tollVerified = true;
+          req.tollMetadata = {
+            transparent: true,
+            sessionId: token.slice(0, 12),
+            workMs: session.workMs,
+            difficulty: session.difficulty,
+            requests: session.requests,
+            scenario
+          };
+          return next();
+        }
+
+        // Expired or rebound session: fall through and re-attest silently.
       }
 
-      const stored = this.challengeStore.get(challengeToken);
-      
-      if (!stored) {
-        return res.status(433).json({
-          error: 'Invalid Challenge',
-          message: 'Invalid or expired challenge token',
-          code: 'CHALLENGE_EXPIRED'
-        });
+      // 2. Browser without a session -> invisible proof of work, then reload.
+      //    The human never sees a challenge.
+      if (this._looksLikeBrowser(req)) {
+        // Programmatic callers (fetch/XHR) get a machine-readable signal the
+        // client library answers by proving work and retrying.
+        if (!this._wantsHtml(req)) {
+          return res.status(401).json({
+            error: 'Attestation Required',
+            message: 'Browser proof of work pending',
+            code: 'ATTESTATION_REQUIRED',
+            scenario
+          });
+        }
+
+        // Top-level navigation: let the page route render the shell.
+        req.tollNeedsAttestation = true;
+        return next();
       }
 
-      if (stored.clientIP !== clientIP) {
-        this.challengeStore.delete(challengeToken);
-        return res.status(403).json({
-          error: 'Forbidden',
-          message: 'IP mismatch in challenge validation',
-          code: 'IP_MISMATCH'
-        });
-      }
-
-      if (stored.solved) {
-        this.challengeStore.delete(challengeToken);
-        return res.status(433).json({
-          error: 'Challenge Used',
-          message: 'This challenge has already been solved',
-          code: 'CHALLENGE_USED'
-        });
-      }
-
-      stored.attempts++;
-      
-      if (stored.attempts > 3) {
-        this.challengeStore.delete(challengeToken);
-        return res.status(403).json({
-          error: 'Too Many Attempts',
-          message: 'Too many failed attempts',
-          code: 'MAX_ATTEMPTS'
-        });
-      }
-
-      if (!challengeResponse) {
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'Missing x-challenge-response header',
-          code: 'MISSING_RESPONSE'
-        });
-      }
-
-      const responseTime = Date.now() - stored.timestamp;
-      const isCorrect = this._validateResponse(stored.challenge, challengeResponse);
-      
-      if (!isCorrect) {
-        return res.status(403).json({
-          error: 'Incorrect Answer',
-          message: 'Incorrect answer to cognitive challenge',
-          code: 'WRONG_ANSWER',
-          attempts_remaining: 3 - stored.attempts
-        });
-      }
-
-      stored.solved = true;
-
-      if (responseTime < this.minResponseTime) {
-        const alertData = {
-          clientIP,
-          challengeId: challengeToken,
-          responseTime,
-          threshold: this.minResponseTime,
-          challengeType: stored.challenge.type || 'reasoning',
-          scenario: stored.challenge.scenario || 'unknown',
-          timestamp: new Date().toISOString(),
-          userAgent: req.headers['user-agent'] || 'unknown'
-        };
-        
-        this.onAIAgentDetected(alertData);
-        
-        this.challengeStore.delete(challengeToken);
-        
-        return res.status(403).json({
-          error: 'AI Agent Detected',
-          message: 'Response speed incompatible with human processing - Autonomous agent blocked',
-          code: 'AI_AGENT_DETECTED',
-          response_time_ms: responseTime,
-          minimum_required_ms: this.minResponseTime,
-          scenario: stored.challenge.scenario
-        });
-      }
-
-      this.challengeStore.delete(challengeToken);
-      req.tollVerified = true;
-      req.tollMetadata = {
-        challengeId: challengeToken,
-        responseTime,
-        challengeType: stored.challenge.type || 'reasoning',
-        scenario: stored.challenge.scenario
-      };
-      
-      next();
+      // 3. Anything that cannot execute JS -> cognitive challenge fallback.
+      return this._challengeFlow(req, res, next, scenario, clientIP);
     };
   }
 
-  _validateResponse(challenge, response) {
-    const normalizedResponse = response.toString().trim().toLowerCase();
-    const normalizedAnswer = challenge.answer.toString().trim().toLowerCase();
-    
-    if (challenge.options) {
-      return challenge.options.some(opt => opt.toLowerCase() === normalizedResponse);
+  // Fallback for non-browser clients: the reasoning challenge plus the
+  // response-time check. A machine answers in 0ms; a person does not.
+  _challengeFlow(req, res, next, scenario, clientIP) {
+    const challengeToken = req.headers['x-ai-proof'];
+    const challengeResponse = req.headers['x-challenge-response'];
+
+    if (!challengeToken) {
+      const challengeData = this._generateChallenge(scenario);
+      const { challengeId, timestamp } = this._createChallengeToken(challengeData, clientIP);
+
+      return res.status(433).json({
+        error: 'Challenge Required',
+        message: 'Cognitive toll required for autonomous agent detection',
+        challenge_id: challengeId,
+        challenge: challengeData.question,
+        challenge_type: challengeData.type || 'reasoning',
+        scenario,
+        timestamp,
+        expires_in: this.challengeTTL
+      });
     }
-    
-    return normalizedResponse === normalizedAnswer;
+
+    const stored = this.challengeStore.get(challengeToken);
+
+    if (!stored) {
+      return res.status(433).json({
+        error: 'Invalid Challenge',
+        message: 'Invalid or expired challenge token',
+        code: 'CHALLENGE_EXPIRED'
+      });
+    }
+
+    if (stored.clientIP !== clientIP) {
+      this.challengeStore.delete(challengeToken);
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'IP mismatch in challenge validation',
+        code: 'IP_MISMATCH'
+      });
+    }
+
+    if (stored.solved) {
+      this.challengeStore.delete(challengeToken);
+      return res.status(433).json({
+        error: 'Challenge Used',
+        message: 'This challenge has already been solved',
+        code: 'CHALLENGE_USED'
+      });
+    }
+
+    stored.attempts++;
+
+    if (stored.attempts > 3) {
+      this.challengeStore.delete(challengeToken);
+      return res.status(403).json({
+        error: 'Too Many Attempts',
+        message: 'Too many failed attempts',
+        code: 'MAX_ATTEMPTS'
+      });
+    }
+
+    if (!challengeResponse) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Missing x-challenge-response header',
+        code: 'MISSING_RESPONSE'
+      });
+    }
+
+    const responseTime = Date.now() - stored.timestamp;
+    const isCorrect = this._validateResponse(stored.challenge, challengeResponse);
+
+    if (!isCorrect) {
+      return res.status(403).json({
+        error: 'Incorrect Answer',
+        message: 'Incorrect answer to cognitive challenge',
+        code: 'WRONG_ANSWER',
+        attempts_remaining: 3 - stored.attempts
+      });
+    }
+
+    stored.solved = true;
+
+    if (responseTime < this.minResponseTime) {
+      this._alert(req, scenario, clientIP, {
+        reason: 'MACHINE_SPEED',
+        challengeId: challengeToken,
+        responseTime,
+        threshold: this.minResponseTime,
+        challengeType: stored.challenge.type || 'reasoning'
+      });
+
+      this.challengeStore.delete(challengeToken);
+
+      return res.status(403).json({
+        error: 'AI Agent Detected',
+        message: 'Response speed incompatible with human processing - Autonomous agent blocked',
+        code: 'AI_AGENT_DETECTED',
+        reason: 'MACHINE_SPEED',
+        response_time_ms: responseTime,
+        minimum_required_ms: this.minResponseTime,
+        scenario
+      });
+    }
+
+    this.challengeStore.delete(challengeToken);
+    req.tollVerified = true;
+    req.tollMetadata = {
+      transparent: false,
+      challengeId: challengeToken,
+      responseTime,
+      challengeType: stored.challenge.type || 'reasoning',
+      scenario
+    };
+
+    next();
+  }
+
+  _cleanup() {
+    const now = Date.now();
+
+    for (const [id, data] of this.challengeStore.entries()) {
+      if (now - data.timestamp > this.challengeTTL || data.solved) {
+        this.challengeStore.delete(id);
+      }
+    }
+
+    this.pow._cleanup();
+    this.sessions._cleanup();
+  }
+
+  get stats() {
+    return {
+      activeSessions: this.sessions.size,
+      pendingProofs: this.pow.pending.size,
+      openChallenges: this.challengeStore.size
+    };
   }
 
   destroy() {
     clearInterval(this.cleanupInterval);
     this.challengeStore.clear();
+    this.pow.destroy();
+    this.sessions.destroy();
   }
 }
 
 module.exports = TollAI;
+module.exports.ProofOfWork = ProofOfWork;
+module.exports.SessionStore = SessionStore;

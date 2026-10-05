@@ -7,6 +7,9 @@
     "start": "node server.js",
     "attack": "node attackers/agent-simulator.js",
     "test": "node attackers/agent-simulator.js --all",
+    "test:flows": "node test/toll-flows.js",
+    "test:client": "node test/toll-client.js",
+    "test:all": "npm run test:flows && npm run test:client && npm test",
     "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo '✅ Servers stopped (ports 3000, 3001)'"
   },
   "dependencies": {
