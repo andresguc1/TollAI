@@ -422,6 +422,35 @@ app.get('/unprotected/images/:id', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'image-gallery', bypassed: true }
   });
 });
+// Scenario G: Video Streaming/Repository - Bandwidth DoS Protection
+app.get('/api/video/stream', conditionalTollAI('video-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'video-portal',
+    message: req.tollMetadata.bypassed ? 'Stream access granted (NO PROTECTION)' : 'Stream access granted - Human verified session',
+    stream: { quality: '1080p', format: 'hls', protected: true },
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/video/chunks/:chunk', conditionalTollAI('video-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'video-portal',
+    chunk: req.params.chunk,
+    message: 'Chunk served (rate-limited by TollAI)',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/video/stream', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'video-portal',
+    message: 'Stream access granted (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'video-portal', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -469,6 +498,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /chat                        → Corporate Chatbot (TollAI)');
   console.log('   GET  /paper                       → Papers Portal (TollAI)');
   console.log('   GET  /gallery                     → Image Gallery (TollAI)');
+  console.log('   GET  /video                       → Video Portal (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -476,6 +506,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/chat-page      → Corporate Chatbot (No TollAI)');
   console.log('   GET  /unprotected/paper-portal   → Papers Portal (No TollAI)');
   console.log('   GET  /unprotected/gallery-page    → Image Gallery (No TollAI)');
+  console.log('   GET  /unprotected/video-page      → Video Portal (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -510,6 +541,15 @@ app.get('/gallery', conditionalTollAI('image-gallery'), (req, res) => {
 });
 app.get('/unprotected/gallery-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'image-gallery.html'));
+});
+
+
+
+app.get('/video', conditionalTollAI('video-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'video-portal.html'));
+});
+app.get('/unprotected/video-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'video-portal.html'));
 });
 
 

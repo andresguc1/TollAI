@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamVault — Protected Video Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@900&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --muted: #6a737d; --accent: #0969da; --border: #d0d7de; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --border: #30363d; } }
+    body { font-family: 'Merriweather', serif; background: var(--bg); color: var(--ink); }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    .header-top { max-width: 1200px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1200px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; display: flex; justify-content: space-between; }
+    .badge { background: var(--accent); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+    .main { max-width: 1200px; margin: 32px auto; padding: 0 20px; }
+    .video-container { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    .player { background: #000; height: 480px; display: flex; align-items: center; justify-content: center; color: #fff; }
+    .info { padding: 24px; }
+    .title { font-size: 1.5rem; font-weight: 900; margin-bottom: 8px; }
+    .meta { color: var(--muted); font-family: 'Source Sans Pro', sans-serif; font-size: 0.9rem; }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">SV</span>
+        <div><h1>StreamVault</h1><div class="tagline">Protected Video Repository — Bandwidth Protected</div></div>
+      </a>
+    </div>
+  </header>
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — Mass video streaming/download attacks blocked to prevent bandwidth exhaustion</div>
+    <span class="badge">PREMIUM CONTENT</span>
+  </div>
+  <main class="main">
+    <div class="video-container">
+      <div class="player">▶ Video Player (Protected Stream)</div>
+      <div class="info">
+        <h2 class="title">HalTest Technical Overview</h2>
+        <p class="meta">Duration: 12:34 • Resolution: 1080p • Access: RESTRICTED • Protected Against Mass Download</p>
+      </div>
+    </div>
+  </main>
+  <footer class="footer">
+    <p>© 2024 StreamVault. All rights reserved. Content protected by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+</body>
+</html>
