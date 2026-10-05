@@ -1,0 +1,36 @@
+{
+  "name": "tollai",
+  "version": "1.0.0",
+  "description": "TollAI - Cognitive Toll Protocol for Autonomous AI Agent Defense",
+  "main": "toll-ai/middleware.js",
+  "types": "toll-ai/middleware.d.ts",
+  "files": [
+    "toll-ai/middleware.js",
+    "toll-ai/middleware.d.ts",
+    "toll-ai/challenges.js",
+    "toll-ai/pow.js",
+    "toll-ai/telemetry.js"
+  ],
+  "keywords": [
+    "cybersecurity",
+    "ai-defense",
+    "cognitive-toll",
+    "anti-bot",
+    "autonomous-agents",
+    "proof-of-work",
+    "bot-detection"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/tollai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/user/tollai/issues"
+  },
+  "homepage": "https://github.com/user/tollai#readme",
+  "scripts": {
+    "test": "node -e \"const t = require('./toll-ai/middleware.js'); const i = new t; console.log('Library OK'); i.destroy();\""
+  },
+  "dependencies": {}
+}
