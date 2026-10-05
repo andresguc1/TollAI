@@ -38,7 +38,10 @@ class Telemetry {
   // Called by the middleware for every tolled request.
   recordRequest(detail) {
     this.counters.requests += 1;
-    if (detail.decision && detail.decision !== 'transparent' && detail.decision !== 'bypassed') {
+    // tollTriggered counts only decisions where TollAI actively intervened:
+    // challenge-issued, blocked, dwell-deferred, attestation-required, reproof
+    // NOT: transparent (no friction), admitted (human passed), bypassed (mode off)
+    if (detail.decision && !['transparent', 'admitted', 'bypassed'].includes(detail.decision)) {
       this.counters.tollTriggered += 1;
     }
     if (detail.decision === 'blocked') this.counters.blocked += 1;

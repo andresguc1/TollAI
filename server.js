@@ -307,6 +307,20 @@ function conditionalTollAI(scenario) {
       scenario: scenario,
       bypassed: true 
     };
+    // Emit bypassed event for observability
+    if (telemetry) {
+      telemetry.recordRequest({
+        ip: req.ip || req.connection.remoteAddress || 'unknown',
+        client: 'unprotected',
+        userAgent: req.headers['user-agent'] || 'unknown',
+        method: req.method,
+        path: req.originalUrl.split('?')[0],
+        mode: 'unprotected',
+        scenario: scenario,
+        decision: 'bypassed',
+        signal: 'MODE_UNPROTECTED'
+      });
+    }
     next();
   };
 }

@@ -3,6 +3,10 @@ const { ProofOfWork, SessionStore } = require('./pow');
 
 const BROWSER_UA = /Mozilla|Chrome|Safari|Firefox|Edg|OPR\//i;
 
+function generateRequestId() {
+  return crypto.randomUUID();
+}
+
 class TollAI {
   constructor(options = {}) {
     this.minResponseTime = options.minResponseTime || 1500;
@@ -217,6 +221,7 @@ class TollAI {
   _emit(req, detail) {
     if (!this.telemetry) return;
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const latencyMs = req.tollStart ? Date.now() - req.tollStart : undefined;
     this.telemetry.recordRequest({
       ip,
       client: this._identify(req).client,
@@ -225,8 +230,16 @@ class TollAI {
       path: req.originalUrl.split('?')[0],
       mode: req.tollMode || 'protected',
       scenario: req.tollScenario || 'generic',
+      requestId: req.tollRequestId,
+      latencyMs,
       ...detail
     });
+  }
+
+  _setResponseHeaders(res, decision, requestId, latencyMs) {
+    if (requestId) res.set('X-Request-Id', requestId);
+    if (decision) res.set('X-TollAI-Decision', decision);
+    if (latencyMs !== undefined) res.set('X-TollAI-Latency-Ms', String(latencyMs));
   }
 
   middleware() {
@@ -234,6 +247,10 @@ class TollAI {
       const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
       const scenario = req.tollScenario || 'generic';
       const token = req.cookies && req.cookies.tollai_session;
+
+      // Generate correlation ID and start latency timer
+      req.tollRequestId = generateRequestId();
+      req.tollStart = Date.now();
 
       // 1. Valid session -> transparent pass, no puzzle, no friction.
       if (token) {
@@ -258,6 +275,7 @@ class TollAI {
               scenario,
               detail: `${this.sessions.rateLimit}+ requests in ${this.sessions.rateWindowMs}ms`
             });
+            this._setResponseHeaders(res, 'blocked', req.tollRequestId, Date.now() - req.tollStart);
             return res.status(403).json({
               error: 'AI Agent Detected',
               message: 'Request burst exceeds human interaction rate - Autonomous agent blocked',
@@ -270,6 +288,7 @@ class TollAI {
           if (quotaExceeded) {
             this._emit(req, { decision: 'reproof', signal: 'QUOTA_EXHAUSTED', scenario,
               detail: `${session.requests} requests this session` });
+            this._setResponseHeaders(res, 'reproof', req.tollRequestId, Date.now() - req.tollStart);
             return res.status(428).json({
               error: 'Proof of Work Required',
               message: 'Session quota exhausted - new proof of work required',
@@ -291,6 +310,7 @@ class TollAI {
               dwellMs: Math.round(session.dwellMs),
               requiredMs: this.minDwellMs
             });
+            this._setResponseHeaders(res, 'dwell-deferred', req.tollRequestId, Date.now() - req.tollStart);
             return res.status(428).json({
               error: 'Dwell Required',
               message: 'Stay on the page before submitting actions',
@@ -310,7 +330,8 @@ class TollAI {
             workMs: session.workMs,
             difficulty: session.difficulty,
             requests: session.requests,
-            scenario
+            scenario,
+            requestId: req.tollRequestId
           };
           this._emit(req, {
             decision: 'transparent',
@@ -320,6 +341,7 @@ class TollAI {
             dwellMs: Math.round(session.dwellMs || 0),
             sessionRequests: session.requests
           });
+          this._setResponseHeaders(res, 'transparent', req.tollRequestId, Date.now() - req.tollStart);
           return next();
         }
 
@@ -338,6 +360,7 @@ class TollAI {
             scenario,
             detail: 'browser without a TollAI cookie'
           });
+          this._setResponseHeaders(res, 'attestation-required', req.tollRequestId, Date.now() - req.tollStart);
           return res.status(401).json({
             error: 'Attestation Required',
             message: 'Browser proof of work pending',
@@ -354,6 +377,7 @@ class TollAI {
           scenario,
           detail: 'browser navigation, shell served'
         });
+        this._setResponseHeaders(res, 'attestation-required', req.tollRequestId, Date.now() - req.tollStart);
         return next();
       }
 
@@ -380,6 +404,7 @@ class TollAI {
         challengeType: challengeData.type || 'reasoning',
         question: challengeData.question
       });
+      this._setResponseHeaders(res, 'challenge-issued', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(433).json({
         error: 'Challenge Required',
         message: 'Cognitive toll required for autonomous agent detection',
@@ -395,6 +420,7 @@ class TollAI {
     const stored = this.challengeStore.get(challengeToken);
 
     if (!stored) {
+      this._setResponseHeaders(res, 'challenge-expired', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(433).json({
         error: 'Invalid Challenge',
         message: 'Invalid or expired challenge token',
@@ -404,6 +430,7 @@ class TollAI {
 
     if (stored.clientIP !== clientIP) {
       this.challengeStore.delete(challengeToken);
+      this._setResponseHeaders(res, 'ip-mismatch', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(403).json({
         error: 'Forbidden',
         message: 'IP mismatch in challenge validation',
@@ -413,6 +440,7 @@ class TollAI {
 
     if (stored.solved) {
       this.challengeStore.delete(challengeToken);
+      this._setResponseHeaders(res, 'challenge-used', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(433).json({
         error: 'Challenge Used',
         message: 'This challenge has already been solved',
@@ -424,6 +452,7 @@ class TollAI {
 
     if (stored.attempts > 3) {
       this.challengeStore.delete(challengeToken);
+      this._setResponseHeaders(res, 'max-attempts', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(403).json({
         error: 'Too Many Attempts',
         message: 'Too many failed attempts',
@@ -432,6 +461,7 @@ class TollAI {
     }
 
     if (!challengeResponse) {
+      this._setResponseHeaders(res, 'missing-response', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(400).json({
         error: 'Bad Request',
         message: 'Missing x-challenge-response header',
@@ -450,6 +480,7 @@ class TollAI {
         challengeId: challengeToken,
         responseTime
       });
+      this._setResponseHeaders(res, 'blocked', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(403).json({
         error: 'Incorrect Answer',
         message: 'Incorrect answer to cognitive challenge',
@@ -479,6 +510,7 @@ class TollAI {
 
       this.challengeStore.delete(challengeToken);
 
+      this._setResponseHeaders(res, 'blocked', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(403).json({
         error: 'AI Agent Detected',
         message: 'Response speed incompatible with human processing - Autonomous agent blocked',
@@ -497,7 +529,8 @@ class TollAI {
       challengeId: challengeToken,
       responseTime,
       challengeType: stored.challenge.type || 'reasoning',
-      scenario
+      scenario,
+      requestId: req.tollRequestId
     };
     this._emit(req, {
       decision: 'admitted',
@@ -507,6 +540,7 @@ class TollAI {
       responseTime,
       threshold: this.minResponseTime
     });
+    this._setResponseHeaders(res, 'admitted', req.tollRequestId, Date.now() - req.tollStart);
 
     next();
   }
