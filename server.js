@@ -504,4 +504,13 @@ app.get('/unprotected/paper-portal', (req, res) => {
 });
 
 
+
+app.get('/gallery', conditionalTollAI('image-gallery'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'image-gallery.html'));
+});
+app.get('/unprotected/gallery-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'image-gallery.html'));
+});
+
+
 module.exports = app;
