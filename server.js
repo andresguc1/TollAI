@@ -495,6 +495,41 @@ app.get('/unprotected/finance/balance', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'finance-portal', bypassed: true }
   });
 });
+// Scenario I: Health Records - PHI Mass Extraction Protection
+app.get('/api/health/records', conditionalTollAI('health-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'health-portal',
+    message: req.tollMetadata.bypassed ? 'Records accessed (NO PROTECTION)' : 'Records accessed - Authorized human verified',
+    records: [
+      { id: 'rec_001', type: 'visit', date: '2024-10-04', provider: 'Dr. Chen' },
+      { id: 'rec_002', type: 'lab', date: '2024-10-02', provider: 'LabCorp' },
+      { id: 'rec_003', type: 'rx', date: '2024-09-28', provider: 'Dr. Patel' }
+    ],
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/health/record/:id', conditionalTollAI('health-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'health-portal',
+    id: req.params.id,
+    record_type: 'restricted',
+    message: 'PHI access protected by TollAI',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/health/records', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'health-portal',
+    message: 'Records accessed (UNPROTECTED MODE)',
+    records: [],
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'health-portal', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -544,6 +579,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /gallery                     → Image Gallery (TollAI)');
   console.log('   GET  /video                       → Video Portal (TollAI)');
   console.log('   GET  /finance                     → Finance Portal (TollAI)');
+  console.log('   GET  /health-portal               → Health Records (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -553,6 +589,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/gallery-page    → Image Gallery (No TollAI)');
   console.log('   GET  /unprotected/video-page      → Video Portal (No TollAI)');
   console.log('   GET  /unprotected/finance-page    → Finance Portal (No TollAI)');
+  console.log('   GET  /unprotected/health-page      → Health Records (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -605,6 +642,15 @@ app.get('/finance', conditionalTollAI('finance-portal'), (req, res) => {
 });
 app.get('/unprotected/finance-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'finance-portal.html'));
+});
+
+
+
+app.get('/health-portal', conditionalTollAI('health-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'health-portal.html'));
+});
+app.get('/unprotected/health-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'health-portal.html'));
 });
 
 

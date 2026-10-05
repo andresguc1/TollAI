@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedVault — Protected Health Records</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@900&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --muted: #6a737d; --accent: #0969da; --success: #238636; --danger: #da3633; --border: #d0d7de; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --muted: #8b949e; --accent: #58a6ff; --border: #30363d; } }
+    body { font-family: 'Merriweather', serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; }
+    .header-top { max-width: 1000px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1000px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; display: flex; justify-content: space-between; }
+    .badge { background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+    .main { max-width: 1000px; margin: 32px auto; padding: 0 20px; }
+    .card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 1.3rem; font-weight: 900; margin-bottom: 12px; font-family: 'Merriweather', serif; }
+    .record { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .record:last-child { border-bottom: none; }
+    .record-info { font-family: 'Source Sans Pro', sans-serif; }
+    .record-title { font-weight: 600; }
+    .record-meta { color: var(--muted); font-size: 0.85rem; }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">MV</span>
+        <div><h1>MedVault</h1><div class="tagline">Protected Electronic Health Records — HIPAA Compliant</div></div>
+      </a>
+    </div>
+  </header>
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — Automated mass extraction of PHI/EHR blocked by cognitive flow analysis</div>
+    <span class="badge">PHI PROTECTED</span>
+  </div>
+  <main class="main">
+    <div class="card">
+      <h2>Patient Records (Restricted Access)</h2>
+      <div class="record"><div class="record-info"><div class="record-title">Office Visit - Primary Care</div><div class="record-meta">2024-10-04 • Provider: Dr. Chen • Type: Consultation</div></div></div>
+      <div class="record"><div class="record-info"><div class="record-title">Laboratory Results - CBC</div><div class="record-meta">2024-10-02 • Facility: LabCorp • Type: Blood Work</div></div></div>
+      <div class="record"><div class="record-info"><div class="record-title">Prescription - Lisinopril</div><div class="record-meta">2024-09-28 • Provider: Dr. Patel • Type: Medication</div></div></div>
+      <div class="record"><div class="record-info"><div class="record-title">Imaging - Chest X-Ray</div><div class="record-meta">2024-09-15 • Facility: Radiology • Type: Diagnostic</div></div></div>
+    </div>
+  </main>
+  <footer class="footer">
+    <p>© 2024 MedVault. All rights reserved. PHI/EHR protected by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+</body>
+</html>
