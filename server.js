@@ -53,10 +53,23 @@ async function getOllamaResponse(message, model = process.env.OLLAMA_MODEL_VICTI
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const TollAI = require('./toll-ai/middleware');
 const { Telemetry } = require('./toll-ai/telemetry');
 
-const telemetry = new Telemetry();
+// Persistence config from env
+const TELEMETRY_PERSIST = process.env.TELEMETRY_PERSIST || 'none'; // 'none' | 'file' | 'redis'
+const TELEMETRY_PATH = process.env.TELEMETRY_PATH || './telemetry.json';
+const TELEMETRY_FLUSH_MS = Number(process.env.TELEMETRY_FLUSH_MS || 30000);
+
+// Mode switch signing secret (for production hardening)
+const MODE_SWITCH_SECRET = process.env.TOLLAI_MODE_SECRET || null;
+
+const telemetry = new Telemetry({
+  persistMode: TELEMETRY_PERSIST,
+  persistPath: TELEMETRY_PATH,
+  flushIntervalMs: TELEMETRY_FLUSH_MS
+});
 const OLLAMA_HOST = process.env.OLLAMA_HOST || '100.100.110.13';
 const OLLAMA_PORT = Number(process.env.OLLAMA_PORT || 11434);
 
@@ -257,6 +270,38 @@ app.post('/tollai/usage', express.json(), (req, res) => {
   res.json({ status: 'recorded' });
 });
 
+// Unified logging endpoint: attacker dashboard pushes attack events for correlation
+// with victim telemetry. Requires shared secret in production.
+app.post('/tollai/attack-events', express.json(), (req, res) => {
+  const secret = process.env.TOLLAI_ATTACK_SECRET;
+  if (secret) {
+    const provided = req.headers['x-tollai-attack-secret'];
+    if (!provided || provided !== secret) {
+      return res.status(403).json({ error: 'Invalid attack secret' });
+    }
+  }
+  const events = Array.isArray(req.body) ? req.body : [req.body];
+  for (const e of events) {
+    telemetry.record({
+      kind: 'attack',
+      decision: e.decision || 'attack',
+      signal: e.signal || 'attack-event',
+      scenario: e.scenario || 'unknown',
+      client: e.client || 'attacker',
+      ip: req.ip,
+      userAgent: req.headers['user-agent'] || 'attacker',
+      method: e.method || 'POST',
+      path: e.path || '/attack',
+      mode: 'attack',
+      requestId: e.requestId || crypto.randomUUID(),
+      latencyMs: e.latencyMs,
+      detail: e.detail,
+      attackData: e.attackData
+    });
+  }
+  res.json({ status: 'recorded', count: events.length });
+});
+
 app.get('/tollai/status', (req, res) => {
   res.json({ status: 'ok', ...tollAI.stats });
 });
@@ -286,8 +331,42 @@ app.post('/tollai/dwell', (req, res) => {
 });
 
 // Mode detection middleware - checks for x-tollai-mode header or query param
+// In production, mode switch requires valid HMAC signature to prevent tampering
 function tollModeMiddleware(req, res, next) {
-  const mode = req.headers['x-tollai-mode'] || req.query.tollai_mode || 'protected';
+  const rawMode = req.headers['x-tollai-mode'] || req.query.tollai_mode || 'protected';
+  let mode = rawMode;
+
+  if (MODE_SWITCH_SECRET) {
+    const signature = req.headers['x-tollai-signature'] || req.query.tollai_sig;
+    const timestamp = req.headers['x-tollai-timestamp'] || req.query.tollai_ts;
+    if (!signature || !timestamp) {
+      return res.status(400).json({
+        error: 'Mode Switch Signature Required',
+        message: 'x-tollai-signature and x-tollai-timestamp headers required when TOLLAI_MODE_SECRET is set',
+        code: 'MODE_SIGNATURE_MISSING'
+      });
+    }
+    // Prevent replay attacks: timestamp must be within 60 seconds
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - parseInt(timestamp, 10)) > 60) {
+      return res.status(400).json({
+        error: 'Mode Switch Timestamp Expired',
+        message: 'Timestamp must be within 60 seconds of server time',
+        code: 'MODE_SIGNATURE_EXPIRED'
+      });
+    }
+    const expected = crypto.createHmac('sha256', MODE_SWITCH_SECRET)
+      .update(`${rawMode}.${timestamp}`)
+      .digest('hex');
+    if (signature !== expected) {
+      return res.status(403).json({
+        error: 'Invalid Mode Switch Signature',
+        message: 'HMAC verification failed',
+        code: 'MODE_SIGNATURE_INVALID'
+      });
+    }
+  }
+
   req.tollMode = mode;
   next();
 }
@@ -1100,9 +1179,10 @@ const server = app.listen(PORT, () => {
   console.log('💡 Dashboard: http://localhost:3000/\n');
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down TollAI server...');
   tollAI.destroy();
+  await telemetry.destroy();
   server.close(() => process.exit(0));
 });
 
