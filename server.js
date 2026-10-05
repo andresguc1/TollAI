@@ -376,6 +376,52 @@ app.get('/api/paper/download', conditionalTollAI('paper-portal'), (req, res) => 
 app.get('/unprotected/paper/download', (req, res) => {
   res.download(path.join(__dirname, 'public', 'papers', 'haltest-abstract.pdf'));
 });
+// Scenario F: Image Gallery - Anti-Scraping Mass Extraction
+app.get('/api/images/gallery', conditionalTollAI('image-gallery'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'image-gallery',
+    message: req.tollMetadata.bypassed ? 'Gallery metadata accessed (NO PROTECTION)' : 'Gallery accessed - Human verified',
+    images: Array.from({length: 12}, (_, i) => ({
+      id: i+1,
+      title: `Artwork #${String(i+1).padStart(2,'0')}`,
+      resolution: i%2===0 ? '4000x6000' : '6000x4000',
+      license: 'RESTRICTED'
+    })),
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/images/:id', conditionalTollAI('image-gallery'), (req, res) => {
+  const id = parseInt(req.params.id) || 1;
+  res.json({
+    status: 'ok',
+    scenario: 'image-gallery',
+    id: id,
+    url: `/papers/haltest-abstract.pdf`, // placeholder
+    message: req.tollMetadata.bypassed ? 'Image metadata accessed (NO PROTECTION)' : 'High-res image access - Human verified',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/images/gallery', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'image-gallery',
+    message: 'Gallery accessed (UNPROTECTED MODE)',
+    images: Array.from({length: 12}, (_, i) => ({ id: i+1, title: `Artwork #${i+1}`, license: 'RESTRICTED' })),
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'image-gallery', bypassed: true }
+  });
+});
+
+app.get('/unprotected/images/:id', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'image-gallery',
+    id: req.params.id,
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'image-gallery', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -422,12 +468,14 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /git                         → Git Repository (TollAI)');
   console.log('   GET  /chat                        → Corporate Chatbot (TollAI)');
   console.log('   GET  /paper                       → Papers Portal (TollAI)');
+  console.log('   GET  /gallery                     → Image Gallery (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
   console.log('   GET  /unprotected/git-repository  → Git Repository (No TollAI)');
   console.log('   GET  /unprotected/chat-page      → Corporate Chatbot (No TollAI)');
   console.log('   GET  /unprotected/paper-portal   → Papers Portal (No TollAI)');
+  console.log('   GET  /unprotected/gallery-page    → Image Gallery (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');

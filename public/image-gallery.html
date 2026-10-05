@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ArtVault — Protected Image Gallery</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,300;0,400;0,700;0,900;1,400;1,700&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --ink-light: #333;
+      --muted: #6a737d; --accent: #0969da; --border: #d0d7de;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --ink-light: #b1bac4;
+        --muted: #8b949e; --accent: #58a6ff; --border: #30363d; }
+    }
+    body { font-family: 'Merriweather', Georgia, serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+    .header-top { max-width: 1400px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1400px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; }
+    .badge { background: var(--accent); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .main { max-width: 1400px; margin: 32px auto; padding: 0 20px; }
+    .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .item { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; transition: transform 0.15s; }
+    .item:hover { transform: translateY(-2px); }
+    .thumb { width: 100%; height: 280px; background: linear-gradient(135deg, var(--accent) 0%, #8957e5 100%); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 4rem; opacity: 0.9; }
+    .item:nth-child(2n) .thumb { background: linear-gradient(135deg, #238636 0%, #58a6ff 100%); }
+    .item:nth-child(3n) .thumb { background: linear-gradient(135deg, #d29922 0%, #0969da 100%); }
+    .item-info { padding: 16px; }
+    .title { font-weight: 700; margin-bottom: 4px; }
+    .meta { color: var(--muted); font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">AV</span>
+        <div>
+          <h1>ArtVault</h1>
+          <div class="tagline">Protected Image Gallery — High-Resolution Assets</div>
+        </div>
+      </a>
+    </div>
+  </header>
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — Mass image scraping for dataset extraction blocked by cognitive flow analysis</div>
+    <span class="badge">WATERMARKED</span>
+  </div>
+  <main class="main">
+    <div class="gallery">
+      <div class="item"><div class="thumb">01</div><div class="item-info"><div class="title">Abstract Composition #01</div><div class="meta">Resolution: 4000x6000 • License: Restricted</div></div></div>
+      <div class="item"><div class="thumb">02</div><div class="item-info"><div class="title">Urban Landscape #02</div><div class="meta">Resolution: 6000x4000 • License: Restricted</div></div></div>
+      <div class="item"><div class="thumb">03</div><div class="item-info"><div class="title">Digital Sculpture #03</div><div class="meta">Resolution: 4000x4000 • License: Restricted</div></div></div>
+      <div class="item"><div class="thumb">04</div><div class="item-info"><div class="title">Nature Study #04</div><div class="meta">Resolution: 6000x4000 • License: Restricted</div></div></div>
+      <div class="item"><div class="thumb">05</div><div class="item-info"><div class="title">Generative Art #05</div><div class="meta">Resolution: 4000x6000 • License: Restricted</div></div></div>
+      <div class="item"><div class="thumb">06</div><div class="item-info"><div class="title">Architectural Detail #06</div><div class="meta">Resolution: 6000x4000 • License: Restricted</div></div></div>
+    </div>
+  </main>
+  <footer class="footer">
+    <p>© 2024 ArtVault. All rights reserved. High-resolution assets protected by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+</body>
+</html>
