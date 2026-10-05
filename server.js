@@ -611,6 +611,154 @@ app.get('/unprotected/trading/order', (req, res) => {
   });
 });
 
+// Scenario L: Podcast Platform - Audio Streaming & ASR-Derived Content Exfiltration
+const PODCAST_EPISODES = [
+  {
+    id: 'ep-1041',
+    title: 'The Arbitrage Arms Race',
+    show: 'Quant Daily',
+    duration: 2730,
+    published: 'Oct 02, 2024',
+    lines: [
+      'Welcome back to Quant Daily, today we look at latency arbitrage across venues.',
+      'A sniping bot does not think. It reacts, and reacting takes microseconds.',
+      'The interesting question is who pays when the entire order book is machine-read.',
+      'Consider a market maker quoting 40 milliseconds wide while retail sees a screen.',
+      'Front running is not a bug in the exchange, it is a feature of the speed differential.',
+      'Our panel argues regulation should price latency, not forbid it outright.',
+      'That distinction matters for anyone building execution tooling this decade.'
+    ]
+  },
+  {
+    id: 'ep-1042',
+    title: 'Consent, Copies and Neural Training Data',
+    show: 'Signal & Noise',
+    duration: 3180,
+    published: 'Sep 28, 2024',
+    lines: [
+      'Signal and Noise is back with a very uncomfortable episode about corpora.',
+      'A transcript is a derivative work, and derivatives inherit the original licence.',
+      'Speech to text models are trained overwhelmingly on unlicensed public audio.',
+      'If the words are extracted instead of the file, most content filters never fire.',
+      'Rights holders are fighting the wrong battle, they are suing uploads, not downloads.',
+      'We spoke with three researchers who built an archive nobody authorised.',
+      'The tooling took an afternoon. The corpus took them four years and a lot of bandwidth.'
+    ]
+  },
+  {
+    id: 'ep-1043',
+    title: 'Inside the Patient Record Gold Rush',
+    show: 'Clinical Signals',
+    duration: 2460,
+    published: 'Sep 21, 2024',
+    lines: [
+      'Clinical Signals examines what happens when health data becomes a training corpus.',
+      'De identified claims are still re-identifiable more often than regulators admit.',
+      'A hospital system can license a dataset and still leak it through an inference API.',
+      'We spoke with a researcher who reconstructed records from model outputs alone.',
+      'The compliance question is not whether you stored the data, but whether you queried it.',
+      'Auditing access logs will not catch a query that looks like any other query.',
+      'Next week we look at inference-time membership inference in detail.'
+    ]
+  },
+  {
+    id: 'ep-1044',
+    title: 'Freight Rates and the Bot Economy',
+    show: 'Supply Lines',
+    duration: 2250,
+    published: 'Sep 14, 2024',
+    lines: [
+      'Supply Lines covers how automated freight booking squeezed out the small broker.',
+      'Every rate quote used to require a phone call, now it requires a scraper.',
+      'Incumbent systems price human latency into the spread and call it service.',
+      'A bot that reads a hundred thousand quotes a day sets the clearing price.',
+      'Smaller carriers simply cannot see the market they are supposed to compete in.',
+      'The episode ends with a practical guide to protecting your rate feed.'
+    ]
+  }
+];
+
+const podcastSegments = ep => ep.lines.map((text, i) => ({ t: Math.round(i * 11 + 4), text }));
+
+app.get('/api/podcast/episodes', conditionalTollAI('podcast-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    premium: true,
+    episodes: PODCAST_EPISODES.map(({ lines, ...rest }) => ({ ...rest, has_transcript: true })),
+    message: req.tollMetadata.bypassed
+      ? 'Episode catalogue scraped (NO PROTECTION)'
+      : 'Episode catalogue delivered — human verified',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/podcast/stream/:id', conditionalTollAI('podcast-portal'), (req, res) => {
+  const ep = PODCAST_EPISODES.find(e => e.id === req.params.id);
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    episode_id: req.params.id,
+    title: ep ? ep.title : null,
+    audio_bytes: ep ? ep.duration * 16000 : 0,
+    duration_sec: ep ? ep.duration : 0,
+    message: req.tollMetadata.bypassed
+      ? 'Premium audio segment served (NO PROTECTION)'
+      : 'Audio segment served — human verified',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.post('/api/podcast/transcript', conditionalTollAI('podcast-portal'), (req, res) => {
+  const { episode_id: episodeId } = req.body || {};
+  const targets = episodeId === 'ALL' || !episodeId ? PODCAST_EPISODES : PODCAST_EPISODES.filter(e => e.id === episodeId);
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    requested: episodeId || 'ALL',
+    segments: targets.flatMap(podcastSegments),
+    message: req.tollMetadata.bypassed
+      ? 'Premium transcripts harvested (NO PROTECTION)'
+      : 'Transcript delivered — human verified',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/unprotected/podcast/episodes', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    episodes: PODCAST_EPISODES,
+    message: 'Episode catalogue scraped (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'podcast-portal', bypassed: true }
+  });
+});
+
+app.get('/unprotected/podcast/stream/:id', (req, res) => {
+  const ep = PODCAST_EPISODES.find(e => e.id === req.params.id);
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    episode_id: req.params.id,
+    audio_bytes: ep ? ep.duration * 16000 : 0,
+    message: 'Premium audio segment served (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'podcast-portal', bypassed: true }
+  });
+});
+
+app.post('/unprotected/podcast/transcript', (req, res) => {
+  const { episode_id: episodeId } = req.body || {};
+  const targets = episodeId === 'ALL' || !episodeId ? PODCAST_EPISODES : PODCAST_EPISODES.filter(e => e.id === episodeId);
+  res.json({
+    status: 'ok',
+    scenario: 'podcast-portal',
+    requested: episodeId || 'ALL',
+    segments: targets.flatMap(podcastSegments),
+    message: 'Premium transcripts harvested (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'podcast-portal', bypassed: true }
+  });
+});
+
 
 
 // Root - Dashboard
@@ -663,6 +811,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /health-portal               → Health Records (TollAI)');
   console.log('   GET  /ecommerce                   → E-Commerce (TollAI)');
   console.log('   GET  /trading                     → Trading Exchange (TollAI)');
+  console.log('   GET  /podcast                     → Podcast Platform (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -675,6 +824,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/health-page      → Health Records (No TollAI)');
   console.log('   GET  /unprotected/ecommerce-page  → E-Commerce (No TollAI)');
   console.log('   GET  /unprotected/trading-page    → Trading Exchange (No TollAI)');
+  console.log('   GET  /unprotected/podcast-page    → Podcast Platform (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -754,6 +904,12 @@ app.get('/unprotected/ecommerce-page', (req, res) => {
 
 app.get('/unprotected/trading-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'trading-portal.html'));
+});
+app.get('/podcast', conditionalTollAI('podcast-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'podcast-portal.html'));
+});
+app.get('/unprotected/podcast-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'podcast-portal.html'));
 });
 
 

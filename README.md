@@ -101,16 +101,14 @@ Open dashboard: **http://localhost:3000/**
 
 ### 3. Run Attack Simulation (Terminal 2)
 ```bash
-# Attack all 4 scenarios
+# Attack all 12 scenarios
 npm run attack
 # or
 node attackers/agent-simulator.js --all
 
 # Attack single scenario
 node attackers/agent-simulator.js --scenario news-portal
-node attackers/agent-simulator.js --scenario social-forum
-node attackers/agent-simulator.js --scenario git-repository
-node attackers/agent-simulator.js --scenario corporate-chatbot
+node attackers/agent-simulator.js --scenario podcast-portal
 ```
 
 ### 4. With Real LLM (Optional)
@@ -214,6 +212,33 @@ const tollAI = new TollAI({
 | **Social Forum** | `/api/social/post` | POST | Synthetic content generation / spam | T1588.002 |
 | **Git Repository** | `/api/git/source-code` | GET | IP theft / code exfiltration | T1530 |
 | **Corporate Chatbot** | `/api/chat` | POST | Token-drain DoS / knowledge extraction | T1499 |
+| **Papers Portal** | `/api/paper` | GET | Bulk academic PDF extraction | T1530 |
+| **Image Gallery** | `/api/images/gallery` | GET | Media asset scraping | T1592.001 |
+| **Video Portal** | `/api/video/stream` | GET | Bandwidth exfiltration / streaming abuse | T1496 |
+| **Finance Portal** | `/api/finance/transfer` | POST | Fraudulent transfer / microtransaction abuse | T1657 |
+| **Health Portal** | `/api/health/records` | GET | PHI / EHR mass extraction | T1213 |
+| **E-Commerce** | `/api/ecommerce/products` | GET | Price & inventory scraping | T1592 |
+| **Trading Exchange** | `/api/trading/order` | POST | HFT front-running / market manipulation | T1499.004 |
+| **Podcast Platform** | `/api/podcast/transcript` | POST | ASR-derived transcript exfiltration | T1530 |
+
+### Coverage rationale
+
+Twelve cases is sufficient because the set covers seven distinct abuse vectors, not twelve
+business domains. A thirteenth case would re-demonstrate an axis that is already proven.
+
+| Abuse vector | Cases |
+|---|---|
+| Static content harvesting | news, papers, images, e-commerce |
+| Long-form stream exfiltration | video, podcast |
+| Derived-content exfiltration (data reconstructed from media, never served as text) | podcast |
+| Code / IP theft | git |
+| LLM compute drain | chatbot |
+| Unilateral write abuse (spam, money, orders) | forum, finance, trading |
+| Regulated PII at scale | health, e-commerce |
+
+The podcast case is the only one where the exfiltrated payload is *derived*: the agent
+downloads raw audio and reconstructs the transcript with local speech-to-text, so transcript
+licensing and content filters never fire.
 
 ## 🧪 Manual Testing
 

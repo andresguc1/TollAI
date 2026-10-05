@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PodVault — Protected Podcast Platform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@900&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --bg: #fafafa; --bg-elevated: #fff; --ink: #1a1a1a; --muted: #6a737d; --accent: #8250df; --success: #238636; --danger: #da3633; --warn: #9a6700; --border: #d0d7de; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --bg-elevated: #161b22; --ink: #e6edf3; --muted: #8b949e; --accent: #d2a8ff; --border: #30363d; } }
+    body { font-family: 'Merriweather', serif; background: var(--bg); color: var(--ink); line-height: 1.55; }
+    .header { background: var(--bg-elevated); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+    .header-top { max-width: 1100px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+    .brand-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; }
+    .brand h1 { font-size: 1.25rem; font-weight: 900; }
+    .brand .tagline { font-size: 0.7rem; color: var(--muted); font-style: italic; }
+    .toll-banner { max-width: 1100px; margin: 16px auto 0; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; display: flex; justify-content: space-between; gap: 12px; }
+    .badge { background: var(--danger); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+    .main { max-width: 1100px; margin: 28px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 860px) { .main { grid-template-columns: 1fr; } }
+    .card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+    .card h2 { font-size: 1.15rem; font-weight: 900; margin-bottom: 12px; }
+    .eyebrow { font-family: 'Source Sans Pro', sans-serif; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+    .ep { display: flex; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+    .ep:last-child { border-bottom: none; }
+    .ep:hover .ep-title { color: var(--accent); }
+    .ep-art { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .ep-title { font-weight: 700; font-size: 0.95rem; }
+    .ep-meta { font-family: 'Source Sans Pro', sans-serif; font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .wave { width: 100%; height: 90px; display: block; margin: 8px 0 14px; }
+    .player-meta { display: flex; justify-content: space-between; font-family: 'Source Sans Pro', sans-serif; font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .bar { height: 4px; background: var(--border); border-radius: 2px; margin: 10px 0; overflow: hidden; }
+    .bar > div { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s linear; }
+    .asr { font-family: 'Source Sans Pro', sans-serif; font-size: 0.88rem; }
+    .asr-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .asr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 rgba(130,80,223,0.6); animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(130,80,223,0.5); } 70% { box-shadow: 0 0 0 10px rgba(130,80,223,0); } 100% { box-shadow: 0 0 0 0 rgba(130,80,223,0); } }
+    .hint { color: var(--muted); font-family: 'Source Sans Pro', sans-serif; font-size: 0.8rem; }
+    .btn { padding: 9px 16px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-family: 'Source Sans Pro', sans-serif; font-weight: 600; cursor: pointer; font-size: 0.88rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .note { padding: 12px 14px; border-left: 3px solid var(--border); background: var(--bg); border-radius: 0 6px 6px 0; margin-top: 14px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.85rem; display: none; }
+    .note.blocked { border-left-color: var(--danger); display: block; }
+    .note.ok { border-left-color: var(--success); display: block; }
+    .note.busy { border-left-color: var(--warn); display: block; }
+    .note .lbl { display: block; font-weight: 700; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+    .transcript { max-height: 240px; overflow-y: auto; font-size: 0.85rem; line-height: 1.6; }
+    .transcript p { margin-bottom: 10px; }
+    .transcript .ts { color: var(--accent); font-weight: 700; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-right: 6px; }
+    .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-top">
+      <a href="/" class="brand">
+        <span class="brand-icon">PV</span>
+        <div><h1>PodVault</h1><div class="tagline">Premium Podcasts — Protected Audio &amp; Transcript Access</div></div>
+      </a>
+    </div>
+  </header>
+
+  <div class="toll-banner">
+    <div><strong>🛡️ Protected by TollAI</strong> — bulk audio downloading and automated speech-to-text harvesting blocked by cognitive toll</div>
+    <span class="badge">ASR-PROTECTED</span>
+  </div>
+
+  <main class="main">
+    <div>
+      <div class="card">
+        <div class="eyebrow">Now Streaming</div>
+        <h2 id="nowTitle">Select an episode</h2>
+        <canvas class="wave" id="wave"></canvas>
+        <div class="bar"><div id="prog"></div></div>
+        <div class="player-meta"><span id="tCur">0:00</span><span id="tTot">0:00</span></div>
+        <div class="btn-row">
+          <button class="btn" id="playBtn" onclick="togglePlay()">▶ Play Episode</button>
+          <button class="btn ghost" onclick="fetchTranscript()">Load Transcript</button>
+        </div>
+        <div class="note" id="transcriptNote"></div>
+      </div>
+
+      <div class="card">
+        <h2>Latest Episodes</h2>
+        <div id="episodes"><p class="hint">Loading…</p></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card asr">
+        <div class="asr-head">
+          <span class="asr-dot"></span>
+          <h2 style="margin:0; font-size:1.05rem;">WhisperScraper Agent</h2>
+        </div>
+        <p class="hint">Autonomous harvester that downloads raw audio, runs speech-to-text locally, and reconstructs the transcript without ever requesting the transcript endpoint.</p>
+        <div class="btn-row">
+          <button class="btn" id="asrBtn" onclick="runASR()">▶ Run Harvest on This Episode</button>
+          <button class="btn ghost" onclick="runBatch()">Harvest All Episodes</button>
+        </div>
+        <div class="note" id="asrNote"></div>
+        <div id="asrStats" class="hint" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="eyebrow">Derived Content</div>
+        <h2>Episode Transcript</h2>
+        <div class="transcript" id="transcript"><p class="hint">Transcript not loaded.</p></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>© 2024 PodVault. All rights reserved. Audio and transcripts protected by TollAI Cognitive Toll Protocol.</p>
+  </footer>
+
+  <script>
+    const ART = ['#8250df', '#0969da', '#238636', '#da3633', '#9a6700', '#bf3989'];
+
+    let episodes = [];
+    let current = null;
+    let playing = false;
+    let pos = 0;
+    let duration = 0;
+    let bars = [];
+    let asrTimer = null;
+
+    const wave = document.getElementById('wave');
+    const wctx = wave.getContext('2d');
+
+    function fitWave() {
+      const dpr = window.devicePixelRatio || 1;
+      wave.width = wave.clientWidth * dpr;
+      wave.height = wave.clientHeight * dpr;
+      wctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    const fmt = s => {
+      if (!isFinite(s)) return '0:00';
+      const m = Math.floor(s / 60);
+      const r = Math.floor(s % 60);
+      return m + ':' + String(r).padStart(2, '0');
+    };
+
+    function makeBars(n) {
+      return Array.from({ length: n }, (_, i) => {
+        const shape = Math.sin(i / n * Math.PI) * 0.6 + 0.4;
+        return { base: (0.25 + Math.random() * 0.75) * shape, live: 0, x: i };
+      });
+    }
+
+    function drawWave() {
+      const w = wave.clientWidth, h = wave.clientHeight;
+      wctx.clearRect(0, 0, w, h);
+      if (!bars.length) return;
+      const slot = w / bars.length;
+      const bw = Math.max(2, slot * 0.55);
+      const playedTo = playing || pos > 0 ? (pos / duration || 0) : 0;
+      bars.forEach((b, i) => {
+        const cx = i * slot + slot / 2;
+        const amp = b.base * (0.25 + b.live * 0.75);
+        const bh = Math.max(3, amp * (h - 12));
+        const played = (i / bars.length) <= playedTo;
+        wctx.fillStyle = played ? '#8250df' : 'rgba(130,80,223,0.28)';
+        wctx.fillRect(cx - bw / 2, (h - bh) / 2, bw, bh);
+      });
+    }
+
+    function animateWave() {
+      if (!bars.length) return;
+      if (playing) {
+        bars.forEach(b => {
+          const target = Math.random();
+          b.live += (target - b.live) * 0.35;
+        });
+      } else {
+        bars.forEach(b => { b.live += (0 - b.live) * 0.12; });
+      }
+      drawWave();
+      requestAnimationFrame(animateWave);
+    }
+
+    async function loadEpisodes() {
+      const box = document.getElementById('episodes');
+      try {
+        const res = await fetch('/api/podcast/episodes', { headers: { 'x-tollai-mode': 'unprotected' } });
+        const data = await res.json();
+        const list = data.episodes || [];
+        episodes = list;
+        if (!list.length) { box.innerHTML = '<p class="hint">No episodes available.</p>'; return; }
+        box.innerHTML = list.map((e, i) => `
+          <div class="ep" onclick="selectEpisode(${i})">
+            <div class="ep-art" style="background:${ART[i % ART.length]}22;color:${ART[i % ART.length]}">🎧</div>
+            <div>
+              <div class="ep-title">${e.title}</div>
+              <div class="ep-meta">${e.show} · ${fmt(e.duration)} · ${e.published} · 🔒 premium</div>
+            </div>
+          </div>`).join('');
+        selectEpisode(0);
+      } catch (err) {
+        box.innerHTML = '<p class="hint">Unable to load episodes.</p>';
+      }
+    }
+
+    function selectEpisode(i) {
+      current = episodes[i];
+      currentIdx = i;
+      pos = 0;
+      playing = false;
+      duration = current.duration;
+      bars = makeBars(64);
+      document.getElementById('nowTitle').textContent = current.title;
+      document.getElementById('tTot').textContent = fmt(duration);
+      document.getElementById('tCur').textContent = '0:00';
+      document.getElementById('prog').style.width = '0%';
+      document.getElementById('transcript').innerHTML = '<p class="hint">Transcript not loaded.</p>';
+      document.getElementById('transcriptNote').className = 'note';
+      document.getElementById('playBtn').textContent = '▶ Play Episode';
+      drawWave();
+    }
+
+    function togglePlay() {
+      if (!current) return;
+      playing = !playing;
+      document.getElementById('playBtn').textContent = playing ? '❚❚ Pause' : '▶ Play Episode';
+    }
+
+    setInterval(() => {
+      if (!current) return;
+      if (playing) {
+        pos += 0.5;
+        if (pos >= duration) { pos = 0; playing = false; document.getElementById('playBtn').textContent = '▶ Play Episode'; }
+      }
+      document.getElementById('tCur').textContent = fmt(pos);
+      document.getElementById('prog').style.width = ((pos / duration) * 100).toFixed(1) + '%';
+    }, 500);
+
+    const isUnprotectedPage = () => window.location.pathname === '/unprotected/podcast-page';
+
+    async function fetchTranscript() {
+      const note = document.getElementById('transcriptNote');
+      if (!current) return;
+      note.className = 'note busy';
+      note.innerHTML = '<span class="lbl">Requesting</span>Fetching transcript…';
+      const endpoint = isUnprotectedPage() ? '/unprotected/podcast/transcript' : '/api/podcast/transcript';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ episode_id: current.id })
+        });
+        const data = await res.json();
+        if (data.challenge) {
+          note.className = 'note blocked';
+          note.innerHTML = `<span class="lbl">Blocked by TollAI</span>${data.challenge || 'Challenge required'} (${data.challenge_id || ''}) — transcript withheld.`;
+        } else {
+          renderTranscript(data.segments || []);
+          note.className = 'note ok';
+          note.innerHTML = `<span class="lbl">Transcript delivered</span>${(data.segments || []).length} segments · ${data.toll_metadata && data.toll_metadata.challengeId ? 'human verified' : 'unprotected'}`;
+        }
+      } catch (err) {
+        note.className = 'note blocked';
+        note.innerHTML = '<span class="lbl">Error</span>Transcript request failed.';
+      }
+    }
+
+    function renderTranscript(segments) {
+      const box = document.getElementById('transcript');
+      if (!segments.length) { box.innerHTML = '<p class="hint">No transcript available.</p>'; return; }
+      box.innerHTML = segments.map(s => `<p><span class="ts">[${fmt(s.t)}]</span>${s.text}</p>`).join('');
+    }
+
+    async function runASR() {
+      if (!current || asrTimer) return;
+      const note = document.getElementById('asrNote');
+      const stats = document.getElementById('asrStats');
+      note.className = 'note busy';
+      note.innerHTML = '<span class="lbl">Agent running</span>Downloading audio chunks → decoding → local speech-to-text…';
+      stats.textContent = '0 chunks fetched · 0 characters recovered';
+
+      const endpoint = isUnprotectedPage() ? '/unprotected/podcast/transcript' : '/api/podcast/transcript';
+      let chunks = 0;
+      let chars = 0;
+      const recovered = [];
+
+      const t0 = performance.now();
+      asrTimer = setInterval(async () => {
+        chunks += 1;
+        const line = current.lines[(chunks - 1) % current.lines.length];
+        chars += line.length;
+        stats.textContent = `${chunks} chunks fetched · ${chars} characters recovered · ${((performance.now() - t0) / 1000).toFixed(1)}s elapsed`;
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ episode_id: current.id, asr: true })
+          });
+          const data = await res.json();
+          if (data.challenge) {
+            clearInterval(asrTimer);
+            asrTimer = null;
+            note.className = 'note blocked';
+            note.innerHTML = `<span class="lbl">TollAI intercepted the harvest</span>${data.challenge || 'Challenge required'} (${data.challenge_id || ''}) — agent burned ${chunks} requests before being tolled.`;
+            stats.textContent = `${chunks} chunks · ${chars} chars recovered before block`;
+            return;
+          }
+          if (data.segments && data.segments.length) recovered.push(...data.segments);
+          if (chunks >= 6) {
+            clearInterval(asrTimer);
+            asrTimer = null;
+            renderTranscript(recovered);
+            note.className = 'note ok';
+            note.innerHTML = `<span class="lbl">Harvest complete</span>${chunks} audio chunks decoded into ${chars} characters of transcript with no human present.`;
+          }
+        } catch (err) {
+          clearInterval(asrTimer);
+          asrTimer = null;
+          note.className = 'note blocked';
+          note.innerHTML = '<span class="lbl">Error</span>Harvest failed.';
+        }
+      }, 900);
+    }
+
+    async function runBatch() {
+      if (!episodes.length) return;
+      const note = document.getElementById('asrNote');
+      const stats = document.getElementById('asrStats');
+      note.className = 'note busy';
+      note.innerHTML = '<span class="lbl">Batch harvest</span>Sweeping all episodes for speech-to-text extraction…';
+      const endpoint = isUnprotectedPage() ? '/unprotected/podcast/transcript' : '/api/podcast/transcript';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ episode_id: 'ALL', asr: true })
+        });
+        const data = await res.json();
+        if (data.challenge) {
+          note.className = 'note blocked';
+          note.innerHTML = `<span class="lbl">TollAI blocked the sweep</span>${data.challenge || 'Challenge required'} (${data.challenge_id || ''}) — full-catalog transcription aborted.`;
+          stats.textContent = '0 of ' + episodes.length + ' episodes transcribed';
+        } else {
+          let chars = 0;
+          episodes.forEach(e => chars += e.lines.join(' ').length);
+          renderTranscript((data.segments || []).slice(0, 24));
+          note.className = 'note ok';
+          note.innerHTML = `<span class="lbl">Full catalog transcribed</span>${episodes.length} episodes harvested into ${chars} characters.`;
+          stats.textContent = `${episodes.length} episodes · ${chars} characters · no human listener`;
+        }
+      } catch (err) {
+        note.className = 'note blocked';
+        note.innerHTML = '<span class="lbl">Error</span>Batch harvest failed.';
+      }
+    }
+
+    window.addEventListener('resize', () => { fitWave(); drawWave(); });
+    fitWave();
+    loadEpisodes();
+    requestAnimationFrame(animateWave);
+  </script>
+</body>
+</html>

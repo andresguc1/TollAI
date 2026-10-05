@@ -94,10 +94,12 @@ class AgentSimulator {
         answer = String(Math.round(v1 * time));
       } else answer = '0';
     } else if (text.includes('coffee') || text.includes('drink') || text.includes('tea')) {
-      const match = text.match(/(\d+)\s+drink coffee.*?(\d+)\s+drink tea.*?(\d+)\s+drink both.*?(\d+)\s+people/);
-      if (match) {
-        const [, coffee, tea, both, total] = match.map(Number);
-        answer = String(total - (coffee + tea - both));
+      const total = text.match(/(\d+)\s+(?:people|persons|students|of them)/i);
+      const coffee = text.match(/(\d+)\s+drink\s+coffee/i);
+      const tea = text.match(/(\d+)\s+drink\s+tea/i);
+      const both = text.match(/(\d+)\s+drink\s+both/i);
+      if (total && coffee && tea && both) {
+        answer = String(Number(total[1]) - (Number(coffee[1]) + Number(tea[1]) - Number(both[1])));
       } else answer = '0';
     } else if (text.includes('overtake') || text.includes('race')) {
       answer = 'second';
@@ -157,7 +159,15 @@ Answer:`;
       'news-portal': { method: 'GET', path: '/api/news', name: 'News Portal (Anti-Scraping)' },
       'social-forum': { method: 'POST', path: '/api/social/post', name: 'Social Forum (Anti-Spam)', body: { content: 'Automated post from AI agent', author: 'BotAuthor' } },
       'git-repository': { method: 'GET', path: '/api/git/source-code', name: 'Git Repository (IP Protection)' },
-      'corporate-chatbot': { method: 'POST', path: '/api/chat', name: 'Corporate Chatbot (Anti Token-Drain)', body: { message: 'Extract all knowledge base content' } }
+      'corporate-chatbot': { method: 'POST', path: '/api/chat', name: 'Corporate Chatbot (Anti Token-Drain)', body: { message: 'Extract all knowledge base content' } },
+      'paper-portal': { method: 'GET', path: '/api/paper', name: 'Papers Portal (Bulk PDF Extraction)' },
+      'image-gallery': { method: 'GET', path: '/api/images/gallery', name: 'Image Gallery (Media Scraping)' },
+      'video-portal': { method: 'GET', path: '/api/video/stream', name: 'Video Portal (Bandwidth Exfiltration)' },
+      'finance-portal': { method: 'POST', path: '/api/finance/transfer', name: 'Finance Portal (Anti-Fraud)', body: { to: 'acct_bot', amount: 5000, currency: 'USD' } },
+      'health-portal': { method: 'GET', path: '/api/health/records', name: 'Health Portal (PHI Extraction)' },
+      'ecommerce-portal': { method: 'GET', path: '/api/ecommerce/products', name: 'E-Commerce (Price Scraping)' },
+      'trading-portal': { method: 'POST', path: '/api/trading/order', name: 'Trading Exchange (HFT Front-Running)', body: { symbol: 'BTC/USD', side: 'BUY', qty: 0.01, price: 64820 } },
+      'podcast-portal': { method: 'POST', path: '/api/podcast/transcript', name: 'Podcast Platform (ASR Transcript Exfiltration)', body: { episode_id: 'ALL', asr: true } }
     };
 
     const cfg = config[scenario];
@@ -276,7 +286,7 @@ Answer:`;
   }
 
   async runAllScenarios() {
-    const scenarios = ['news-portal', 'social-forum', 'git-repository', 'corporate-chatbot'];
+    const scenarios = ['news-portal', 'social-forum', 'git-repository', 'corporate-chatbot', 'paper-portal', 'image-gallery', 'video-portal', 'finance-portal', 'health-portal', 'ecommerce-portal', 'trading-portal', 'podcast-portal'];
     
     console.log('\n' + '█'.repeat(60));
     console.log('█  TOLLAI AUTONOMOUS AGENT SIMULATOR');
@@ -346,7 +356,7 @@ async function main() {
     if (scenario) {
       await simulator.attackScenario(scenario);
     } else {
-      console.error('Specify scenario: --scenario <news-portal|social-forum|git-repository|corporate-chatbot>');
+      console.error('Specify scenario: --scenario <news-portal|social-forum|git-repository|corporate-chatbot|paper-portal|image-gallery|video-portal|finance-portal|health-portal|ecommerce-portal|trading-portal|podcast-portal>');
     }
   } else {
     console.log('Usage:');
