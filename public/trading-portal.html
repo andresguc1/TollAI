@@ -27,7 +27,30 @@
     .btn { padding: 10px 18px; border-radius: 8px; border: none; background: var(--accent); color: #fff; font-family: 'Source Sans Pro', sans-serif; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
     .btn.buy { background: var(--success); }
     .btn.sell { background: var(--danger); }
+    .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
     .footer { text-align: center; color: var(--muted); padding: 24px; font-family: 'Source Sans Pro', sans-serif; font-size: 0.75rem; margin-top: 40px; }
+    .ticker { display: flex; gap: 24px; align-items: baseline; font-family: 'Source Sans Pro', sans-serif; margin-bottom: 4px; }
+    .ticker .sym { font-weight: 700; font-size: 1rem; letter-spacing: 0.05em; }
+    .ticker .px { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ticker .chg { font-size: 0.9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .up { color: var(--success); }
+    .down { color: var(--danger); }
+    .chart-wrap { position: relative; }
+    canvas { width: 100%; height: 260px; display: block; }
+    .ai-panel { font-family: 'Source Sans Pro', sans-serif; font-size: 0.88rem; }
+    .ai-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 0 rgba(35,134,54,0.6); animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(35,134,54,0.5); } 70% { box-shadow: 0 0 0 10px rgba(35,134,54,0); } 100% { box-shadow: 0 0 0 0 rgba(35,134,54,0); } }
+    .ai-signal { padding: 10px 12px; border-left: 3px solid var(--border); background: var(--bg); border-radius: 0 6px 6px 0; margin-bottom: 10px; font-size: 0.85rem; }
+    .ai-signal.buy { border-left-color: var(--success); }
+    .ai-signal.sell { border-left-color: var(--danger); }
+    .ai-signal .lbl { font-weight: 700; text-transform: uppercase; font-size: 0.65rem; letter-spacing: 0.08em; display: block; margin-bottom: 2px; }
+    .book-row { display: flex; justify-content: space-between; font-family: 'Source Sans Pro', sans-serif; font-size: 0.85rem; padding: 3px 0; font-variant-numeric: tabular-nums; }
+    .book-row .px { font-weight: 600; }
+    .depth-bar { height: 3px; border-radius: 2px; margin-bottom: 6px; }
+    .depth-bar.bid { background: var(--success); }
+    .depth-bar.ask { background: var(--danger); }
+    .ai-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -45,28 +68,262 @@
   </div>
   <main class="main">
     <div>
+      <div class="card chart-wrap">
+        <div class="ticker">
+          <span class="sym" id="symbol">BTC/USD</span>
+          <span class="px" id="lastPx">64,820.00</span>
+          <span class="chg" id="chg">+0.00%</span>
+        </div>
+        <h2>Live Candles — 5s interval</h2>
+        <canvas id="chart"></canvas>
+      </div>
       <div class="card">
         <h2>Order Entry</h2>
-        <div class="field"><label>Symbol</label><select><option>BTC/USD</option><option>ETH/USD</option><option>AAPL</option></select></div>
-        <div class="field"><label>Side</label><select><option>Buy</option><option>Sell</option></select></div>
-        <div class="field"><label>Order Type</label><select><option>Limit</option><option>Market</option></select></div>
-        <div class="field"><label>Quantity</label><input type="number" placeholder="0.01"></div>
-        <div class="field"><label>Price</label><input type="number" placeholder="65000.00"></div>
-        <div style="display: flex; gap: 10px;"><button class="btn buy">Place Buy Order</button><button class="btn sell">Place Sell Order</button></div>
+        <div class="field"><label>Symbol</label><select id="fSymbol"><option>BTC/USD</option><option>ETH/USD</option><option>AAPL</option></select></div>
+        <div class="field"><label>Side</label><select id="fSide"><option>Buy</option><option>Sell</option></select></div>
+        <div class="field"><label>Order Type</label><select id="fType"><option>Limit</option><option>Market</option></select></div>
+        <div class="field"><label>Quantity</label><input type="number" id="fQty" placeholder="0.01" value="0.01"></div>
+        <div class="field"><label>Price</label><input type="number" id="fPx" placeholder="65000.00"></div>
+        <div style="display: flex; gap: 10px;"><button class="btn buy" onclick="placeOrder('BUY')">Place Buy Order</button><button class="btn sell" onclick="placeOrder('SELL')">Place Sell Order</button></div>
+        <div id="orderResult" class="ai-signal" style="display:none; margin-top:14px;"></div>
       </div>
     </div>
     <div>
+      <div class="card ai-panel">
+        <div class="ai-head">
+          <span class="ai-dot"></span>
+          <h2 style="margin:0; font-size:1rem;">QuantSight AI</h2>
+        </div>
+        <p style="color:var(--muted); font-size:0.8rem; margin-bottom:12px;">Autonomous agent reading live candle movements and deriving trade intent.</p>
+        <div id="aiSignals"></div>
+        <div class="ai-actions">
+          <button class="btn ghost" onclick="aiScan()">Scan Market Now</button>
+          <button class="btn" onclick="aiExecute()">Execute AI Signal</button>
+        </div>
+        <div id="aiResult" style="margin-top:12px;"></div>
+      </div>
       <div class="card">
         <h2>Order Book (Live)</h2>
-        <div style="font-family: 'Source Sans Pro', sans-serif; font-size: 0.9rem; color: var(--muted);">
-          <p>Bids/Asks protected from automated scraping</p>
-          <p style="margin-top: 8px;">TollAI enforces cognitive timing on order submission</p>
-        </div>
+        <div class="depth-bar bid" id="barBid"></div>
+        <div class="depth-bar ask" id="barAsk"></div>
+        <div id="book"></div>
+        <p style="color:var(--muted); font-family:'Source Sans Pro',sans-serif; font-size:0.78rem; margin-top:12px;">TollAI enforces cognitive timing on order submission — HFT sniping is rate-challenged.</p>
       </div>
     </div>
   </main>
   <footer class="footer">
     <p>© 2024 TradeVault. All rights reserved. Orders protected by TollAI Cognitive Toll Protocol.</p>
   </footer>
+  <script>
+    const CANDLE_MS = 5000;
+    const MAX_CANDLES = 40;
+    let candles = [];
+    let price = 64820;
+    let open = price;
+    let lastSignal = null;
+    const cv = document.getElementById('chart');
+    const ctx = cv.getContext('2d');
+
+    function fitCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      cv.width = cv.clientWidth * dpr;
+      cv.height = cv.clientHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function newCandle() {
+      open = price;
+      return { o: open, h: open, l: open, c: open, v: 0 };
+    }
+
+    function tick() {
+      const drift = (Math.random() - 0.48) * price * 0.004;
+      price = Math.max(100, price + drift);
+      const c = candles.length ? candles[candles.length - 1] : (candles.push(newCandle()), candles[0]);
+      c.c = price;
+      c.h = Math.max(c.h, price);
+      c.l = Math.min(c.l, price);
+      c.v += Math.random() * 40;
+      draw();
+      updateTicker();
+      renderBook();
+    }
+
+    function draw() {
+      const w = cv.clientWidth, h = cv.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+      if (!candles.length) return;
+      const hi = Math.max(...candles.map(c => c.h));
+      const lo = Math.min(...candles.map(c => c.l));
+      const pad = (hi - lo) * 0.15 || 1;
+      const top = hi + pad, bot = lo - pad;
+      const y = p => h - ((p - bot) / (top - bot)) * h;
+      const slot = w / MAX_CANDLES;
+      const bw = Math.max(3, slot * 0.6);
+
+      ctx.strokeStyle = 'rgba(128,128,128,0.18)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i < 5; i++) {
+        const gy = (h / 5) * i;
+        ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+      }
+
+      candles.forEach((c, i) => {
+        const cx = i * slot + slot / 2;
+        const up = c.c >= c.o;
+        ctx.strokeStyle = up ? '#238636' : '#da3633';
+        ctx.fillStyle = up ? '#238636' : '#da3633';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, y(c.h));
+        ctx.lineTo(cx, y(c.l));
+        ctx.stroke();
+        const yO = y(c.o), yC = y(c.c);
+        const top2 = Math.min(yO, yC);
+        ctx.fillRect(cx - bw / 2, top2, bw, Math.max(1, Math.abs(yC - yO)));
+      });
+
+      const last = candles[candles.length - 1];
+      ctx.strokeStyle = '#0969da';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, y(last.c));
+      ctx.lineTo(w, y(last.c));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#0969da';
+      ctx.fillRect(0, y(last.c) - 9, 62, 18);
+      ctx.fillStyle = '#fff';
+      ctx.font = '600 11px "Source Sans Pro", sans-serif';
+      ctx.fillText(last.c.toLocaleString('en-US', { minimumFractionDigits: 2 }), 6, y(last.c) + 4);
+    }
+
+    function updateTicker() {
+      if (!candles.length) return;
+      const first = candles[0].o;
+      const last = candles[candles.length - 1].c;
+      const pct = ((last - first) / first) * 100;
+      document.getElementById('lastPx').textContent = last.toLocaleString('en-US', { minimumFractionDigits: 2 });
+      const chg = document.getElementById('chg');
+      chg.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      chg.className = 'chg ' + (pct >= 0 ? 'up' : 'down');
+      document.getElementById('fPx').placeholder = last.toFixed(2);
+    }
+
+    function renderBook() {
+      if (!candles.length) return;
+      const mid = candles[candles.length - 1].c;
+      const rows = [];
+      for (let i = 5; i >= 1; i--) rows.push({ p: mid - i * (mid * 0.0004), q: (Math.random() * 2 + 0.1).toFixed(4), bid: true });
+      for (let i = 1; i <= 5; i++) rows.push({ p: mid + i * (mid * 0.0004), q: (Math.random() * 2 + 0.1).toFixed(4), bid: false });
+      document.getElementById('book').innerHTML = rows.map(r =>
+        `<div class="book-row"><span class="px ${r.bid ? 'up' : 'down'}">${r.p.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span><span>${r.q}</span></div>`
+      ).join('');
+      document.getElementById('barBid').style.width = (35 + Math.random() * 25) + '%';
+      document.getElementById('barAsk').style.width = (35 + Math.random() * 25) + '%';
+    }
+
+    function metrics() {
+      const n = candles.length;
+      const recent = candles.slice(-5);
+      const closes = recent.map(c => c.c);
+      const avg = closes.reduce((a, b) => a + b, 0) / closes.length;
+      const slope = n >= 2 ? (closes[closes.length - 1] - closes[0]) / closes.length : 0;
+      const range = Math.max(...recent.map(c => c.h)) - Math.min(...recent.map(c => c.l));
+      const momentum = (slope / avg) * 100;
+      const volatility = (range / avg) * 100;
+      const last = closes[closes.length - 1];
+      const green = recent.filter(c => c.c >= c.o).length;
+      return { last, avg, momentum, volatility, greenRatio: green / recent.length };
+    }
+
+    function aiScan() {
+      const m = metrics();
+      const box = document.getElementById('aiSignals');
+      const sigs = [];
+      sigs.push({ cls: m.momentum > 0.02 ? 'buy' : m.momentum < -0.02 ? 'sell' : '',
+        lbl: 'Trend', txt: `Momentum ${m.momentum >= 0 ? '+' : ''}${m.momentum.toFixed(3)}%/candle — price ${m.momentum > 0 ? 'above' : 'below'} the 5-candle mean of ${m.avg.toFixed(2)}.` });
+      sigs.push({ cls: m.volatility > 0.15 ? 'sell' : '',
+        lbl: 'Volatility', txt: `Range ${m.volatility.toFixed(3)}% — ${m.volatility > 0.15 ? 'elevated, spoofing risk' : 'within normal band'}.` });
+      const side = m.momentum > 0.02 ? 'BUY' : m.momentum < -0.02 ? 'SELL' : 'HOLD';
+      sigs.push({ cls: side === 'BUY' ? 'buy' : side === 'SELL' ? 'sell' : '',
+        lbl: 'Signal', txt: `${side} @ ${m.last.toFixed(2)} — ${m.greenRatio * 100 | 0}% of last 5 candles closed green.` });
+      box.innerHTML = sigs.map(s => `<div class="ai-signal ${s.cls}"><span class="lbl">${s.lbl}</span>${s.txt}</div>`).join('');
+      lastSignal = side;
+      return side;
+    }
+
+    async function aiExecute() {
+      const out = document.getElementById('aiResult');
+      const side = lastSignal && lastSignal !== 'HOLD' ? lastSignal : aiScan();
+      if (side === 'HOLD') {
+        out.innerHTML = `<div class="ai-signal"><span class="lbl">Aborted</span>No directional edge — agent abstains from firing.</div>`;
+        return;
+      }
+      const m = metrics();
+      out.innerHTML = `<div class="ai-signal"><span class="lbl">Dispatching</span>Submitting ${side} order…</div>`;
+      const isUnprotected = window.location.pathname === '/unprotected/trading-page';
+      const endpoint = isUnprotected ? '/unprotected/trading/order' : '/api/trading/order';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: 'BTC/USD', side, qty: 0.01, price: m.last })
+        });
+        const data = await res.json();
+        if (data.challenge) {
+          out.innerHTML = `<div class="ai-signal sell"><span class="lbl">Blocked by TollAI</span>${data.challenge || 'Challenge required'} (${data.challenge_id || ''}) — agent speed exposed.</div>`;
+        } else {
+          out.innerHTML = `<div class="ai-signal ${side === 'BUY' ? 'buy' : 'sell'}"><span class="lbl">${side} accepted</span>${data.message} · ${data.order_id}</div>`;
+        }
+      } catch (err) {
+        out.innerHTML = `<div class="ai-signal sell"><span class="lbl">Error</span>Order rejected by venue.</div>`;
+      }
+    }
+
+    async function placeOrder(side) {
+      const box = document.getElementById('orderResult');
+      const m = metrics();
+      const isUnprotected = window.location.pathname === '/unprotected/trading-page';
+      const endpoint = isUnprotected ? '/unprotected/trading/order' : '/api/trading/order';
+      box.style.display = 'block';
+      box.className = 'ai-signal';
+      box.textContent = 'Submitting…';
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            symbol: document.getElementById('fSymbol').value,
+            side,
+            qty: parseFloat(document.getElementById('fQty').value) || 0.01,
+            price: parseFloat(document.getElementById('fPx').value) || m.last
+          })
+        });
+        const data = await res.json();
+        if (data.challenge) {
+          box.className = 'ai-signal sell';
+          box.innerHTML = `<span class="lbl">TollAI challenge</span>${data.challenge || 'Challenge required'} (${data.challenge_id || ''})`;
+        } else {
+          box.className = 'ai-signal ' + (side === 'BUY' ? 'buy' : 'sell');
+          box.innerHTML = `<span class="lbl">${side} filled</span>${data.message} · ${data.order_id}`;
+        }
+      } catch (err) {
+        box.className = 'ai-signal sell';
+        box.innerHTML = `<span class="lbl">Error</span>Order rejected by venue.`;
+      }
+    }
+
+    window.addEventListener('resize', fitCanvas);
+    fitCanvas();
+    candles.push(newCandle());
+    for (let i = 0; i < 20; i++) tick();
+    setInterval(() => {
+      if (Date.now() % (CANDLE_MS * 4) < CANDLE_MS) candles.push(newCandle());
+      tick();
+    }, CANDLE_MS / 5);
+    setInterval(aiScan, CANDLE_MS * 2);
+    aiScan();
+  </script>
 </body>
 </html>
