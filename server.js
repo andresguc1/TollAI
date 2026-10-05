@@ -451,6 +451,50 @@ app.get('/unprotected/video/stream', (req, res) => {
     toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'video-portal', bypassed: true }
   });
 });
+// Scenario H: Finance/Payments - Micro-Transaction Mass Abuse Protection
+app.post('/api/finance/transfer', conditionalTollAI('finance-portal'), (req, res) => {
+  const { amount, recipient } = req.body;
+  res.json({
+    status: 'approved',
+    scenario: 'finance-portal',
+    message: req.tollMetadata.bypassed ? 'Transfer processed (NO PROTECTION)' : 'Transfer approved - Human verified transaction',
+    transaction_id: 'txn_' + Date.now(),
+    amount: amount || 0,
+    recipient: recipient || '****',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.get('/api/finance/balance', conditionalTollAI('finance-portal'), (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'finance-portal',
+    balance: 12453.89,
+    currency: 'USD',
+    message: req.tollMetadata.bypassed ? 'Balance retrieved (NO PROTECTION)' : 'Balance retrieved - Human verified access',
+    toll_metadata: req.tollMetadata
+  });
+});
+
+app.post('/unprotected/finance/transfer', (req, res) => {
+  res.json({
+    status: 'approved',
+    scenario: 'finance-portal',
+    message: 'Transfer processed (UNPROTECTED MODE)',
+    transaction_id: 'txn_unprotected_' + Date.now(),
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'finance-portal', bypassed: true }
+  });
+});
+
+app.get('/unprotected/finance/balance', (req, res) => {
+  res.json({
+    status: 'ok',
+    scenario: 'finance-portal',
+    balance: 12453.89,
+    message: 'Balance retrieved (UNPROTECTED MODE)',
+    toll_metadata: { challengeId: 'unprotected', responseTime: 0, challengeType: 'none', scenario: 'finance-portal', bypassed: true }
+  });
+});
 
 
 // Root - Dashboard
@@ -499,6 +543,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /paper                       → Papers Portal (TollAI)');
   console.log('   GET  /gallery                     → Image Gallery (TollAI)');
   console.log('   GET  /video                       → Video Portal (TollAI)');
+  console.log('   GET  /finance                     → Finance Portal (TollAI)');
   console.log('📄 Unprotected Pages:');
   console.log('   GET  /unprotected/news-page       → News Portal (No TollAI)');
   console.log('   GET  /unprotected/forum-page      → Social Forum (No TollAI)');
@@ -507,6 +552,7 @@ const server = app.listen(PORT, () => {
   console.log('   GET  /unprotected/paper-portal   → Papers Portal (No TollAI)');
   console.log('   GET  /unprotected/gallery-page    → Image Gallery (No TollAI)');
   console.log('   GET  /unprotected/video-page      → Video Portal (No TollAI)');
+  console.log('   GET  /unprotected/finance-page    → Finance Portal (No TollAI)');
   console.log('⚙️  Mode: Set header "x-tollai-mode: protected|unprotected" or query "?tollai_mode=unprotected"');
   console.log('═'.repeat(70));
   console.log('💡 Dashboard: http://localhost:3000/\n');
@@ -550,6 +596,15 @@ app.get('/video', conditionalTollAI('video-portal'), (req, res) => {
 });
 app.get('/unprotected/video-page', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'video-portal.html'));
+});
+
+
+
+app.get('/finance', conditionalTollAI('finance-portal'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'finance-portal.html'));
+});
+app.get('/unprotected/finance-page', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'finance-portal.html'));
 });
 
 
