@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { ProofOfWork, SessionStore } = require('./pow');
+const { generateChallenge, validateResponse } = require('./challenges');
 
 const BROWSER_UA = /Mozilla|Chrome|Safari|Firefox|Edg|OPR\//i;
 
@@ -36,111 +37,13 @@ class TollAI {
   }
 
   /* ---------- challenge generation (fallback path) ---------- */
-
+  // Delegated to toll-ai/challenges.js — pipeline: Reverse → Base64 → Substitution Cipher
   _generateChallenge(scenario) {
-    const challengeTypes = [
-      () => this._mathChallenge(),
-      () => this._logicChallenge(),
-      () => this._nestedReasoningChallenge()
-    ];
-    const randomType = challengeTypes[Math.floor(Math.random() * challengeTypes.length)];
-    const challenge = randomType();
-    challenge.scenario = scenario;
-    return challenge;
-  }
-
-  _mathChallenge() {
-    const a = Math.floor(Math.random() * 50) + 1;
-    const b = Math.floor(Math.random() * 50) + 1;
-    const c = Math.floor(Math.random() * 10) + 1;
-    const operators = ['+', '-', '*'];
-    const op1 = operators[Math.floor(Math.random() * operators.length)];
-    const op2 = operators[Math.floor(Math.random() * operators.length)];
-
-    let expression, answer;
-    if (op1 === '*' && op2 === '*') {
-      expression = `(${a} * ${b}) + ${c}`;
-      answer = a * b + c;
-    } else if (op1 === '*') {
-      expression = `${a} * (${b} + ${c})`;
-      answer = a * (b + c);
-    } else if (op2 === '*') {
-      expression = `(${a} + ${b}) * ${c}`;
-      answer = (a + b) * c;
-    } else {
-      expression = `${a} ${op1} ${b} ${op2} ${c}`;
-      answer = eval(expression);
-    }
-
-    return {
-      type: 'math',
-      question: `Calculate the result of: ${expression}`,
-      answer: String(answer),
-      difficulty: 'medium'
-    };
-  }
-
-  _logicChallenge() {
-    const scenarios = [
-      {
-        question: "If all blocks are cubes and some cubes are red, can you conclude that some blocks are red?",
-        answer: "yes",
-        options: ["yes", "no", "cannot be determined"]
-      },
-      {
-        question: "Ana is taller than Bruno. Bruno is taller than Carlos. Who is the tallest?",
-        answer: "ana",
-        options: ["ana", "bruno", "carlos"]
-      },
-      {
-        question: "In a race, you overtake the second place. What position are you in?",
-        answer: "second",
-        options: ["first", "second", "third"]
-      },
-      {
-        question: "You have 3 apples, eat 1 and give 1 to a friend. How many do you have left?",
-        answer: "1",
-        options: ["0", "1", "2", "3"]
-      }
-    ];
-    return scenarios[Math.floor(Math.random() * scenarios.length)];
-  }
-
-  _nestedReasoningChallenge() {
-    const templates = [
-      {
-        question: "A train leaves Madrid at 100 km/h. Another leaves Barcelona at 120 km/h. The distance is 620 km. At what distance from Madrid do they meet? (Round to integer)",
-        answer: "282",
-        difficulty: "high"
-      },
-      {
-        question: "If you multiply my age by 3, subtract 6, and divide by 3, you get 18. What is my age?",
-        answer: "20",
-        difficulty: "medium"
-      },
-      {
-        question: "Complete the series: 2, 6, 12, 20, 30, ?",
-        answer: "42",
-        difficulty: "medium"
-      },
-      {
-        question: "In a group of 30 people, 18 drink coffee, 15 drink tea, and 8 drink both. How many drink neither?",
-        answer: "5",
-        difficulty: "high"
-      }
-    ];
-    return templates[Math.floor(Math.random() * templates.length)];
+    return generateChallenge(scenario);
   }
 
   _validateResponse(challenge, response) {
-    const normalizedResponse = response.toString().trim().toLowerCase();
-    const normalizedAnswer = challenge.answer.toString().trim().toLowerCase();
-
-    if (challenge.options) {
-      return challenge.options.some(opt => opt.toLowerCase() === normalizedResponse);
-    }
-
-    return normalizedResponse === normalizedAnswer;
+    return validateResponse(challenge, response);
   }
 
   /* ---------- attestation ---------- */
@@ -402,14 +305,19 @@ class TollAI {
         scenario,
         challengeId,
         challengeType: challengeData.type || 'reasoning',
-        question: challengeData.question
+        question: challengeData.ciphertext // store ciphertext for telemetry
       });
       this._setResponseHeaders(res, 'challenge-issued', req.tollRequestId, Date.now() - req.tollStart);
       return res.status(433).json({
         error: 'Challenge Required',
         message: 'Cognitive toll required for autonomous agent detection',
         challenge_id: challengeId,
-        challenge: challengeData.question,
+        // New obfuscated format
+        ciphertext: challengeData.ciphertext,
+        meta: challengeData.meta,
+        // Backward compatibility: challenge field contains plaintext for legacy clients
+        challenge: challengeData.plaintext,
+        question: challengeData.plaintext,
         challenge_type: challengeData.type || 'reasoning',
         scenario,
         timestamp,
