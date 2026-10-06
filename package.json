@@ -3,6 +3,30 @@
   "version": "1.0.0",
   "description": "TollAI - Cognitive Toll Protocol PoC for Autonomous AI Agent Defense",
   "main": "server.js",
+  "module": "public/tollai-client.js",
+  "types": "tollai-lib/middleware.d.ts",
+  "exports": {
+    ".": "./server.js",
+    "./pow": "./toll-ai/pow.js",
+    "./middleware": "./toll-ai/middleware.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "files": [
+    "server.js",
+    "toll-ai/",
+    "public/",
+    "test/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/username/tollai-poc"
+  },
+  "bugs": {
+    "url": "https://github.com/username/tollai-poc/issues"
+  },
+  "homepage": "https://github.com/username/tollai-poc#readme",
   "scripts": {
     "start": "node server.js",
     "config": "node attacker-config.js",
@@ -15,8 +39,8 @@
     "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo '✅ Servers stopped (ports 3000, 3001)'"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "axios": "^1.6.2"
+    "axios": "^1.6.2",
+    "express": "^4.18.2"
   },
   "keywords": [
     "cybersecurity",
@@ -26,5 +50,8 @@
     "autonomous-agents"
   ],
   "author": "Cybersecurity Architect",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
 }

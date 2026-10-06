@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "description": "TollAI - Cognitive Toll Protocol for Autonomous AI Agent Defense",
   "main": "toll-ai/middleware.js",
+  "module": "toll-ai/middleware.js",
+  "types": "toll-ai/middleware.d.ts",
+  "exports": {
+    ".": "./toll-ai/middleware.js",
+    "./pow": "./toll-ai/pow.js",
+    "./challenges": "./toll-ai/challenges.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "types": "toll-ai/middleware.d.ts",
   "files": [
     "toll-ai/middleware.js",
