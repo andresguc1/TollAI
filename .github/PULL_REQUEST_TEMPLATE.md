@@ -1,46 +1,50 @@
-👋 Hola, amigo desarrollador
+👋 Hello, developer friend
 
-Muchas gracias por tomarte el tiempo de revisar TollAI.
-Espero que te haya gustado tanto explorarlo como a mí me ha gustado desarrollarlo.
+Thank you for taking the time to review TollAI.
+I hope you enjoyed exploring it as much as I enjoyed developing it.
 
-Si quieres aportar al proyecto, solo te quiero pedir una cosa:
+If you want to contribute to the project, there's one thing I ask you:
 
-**No gastes tus tokens únicamente en generarme código.**
+**Don't spend your tokens solely on generating code for me.**
 
-No necesito que una IA genere código y me envíe un Pull Request simplemente porque sí.
-Si quieres ayudar a TollAI, tu conocimiento, experiencia y capacidad para encontrar problemas son mucho más valiosos para mí que unas líneas de código generadas por IA.
+I don't need an AI to generate code and send me a Pull Request just because.
+If you want to help TollAI, your knowledge, experience, and ability to find problems are much more valuable to me than a few lines of AI-generated code.
 
-Puedes contribuir de muchas otras maneras:
+You can contribute in many other ways:
 
-* 💡 Proponer un nuevo caso de uso.
-* 🐛 Reportar un bug.
-* 🔎 Encontrar un problema de arquitectura.
-* 🧪 Compartir un escenario de prueba.
-* 🚀 Proponer una nueva funcionalidad.
-* 🧩 Detectar una limitación.
-* 📊 Compartir benchmarks.
-* 🔐 Identificar un problema de seguridad.
-* 🎨 Sugerir mejoras de UX/UI.
-* 📚 Compartir documentación o referencias.
-* 🔬 Investigar una alternativa tecnológica.
+* 💡 Propose a new use case.
+* 🐛 Report a bug.
+* 🔎 Find an architecture problem.
+* 🧪 Share a test scenario.
+* 🚀 Propose a new functionality.
+* 🧩 Detect a limitation.
+* 📊 Share benchmarks.
+* 🔐 Identify a security problem.
+* 🎨 Suggest UX/UI improvements.
+* 📚 Share documentation or references.
+* 🔬 Research an alternative technology.
 
-Si tienes evidencias, mucho mejor:
+If you have evidence, much better:
 
-* capturas de pantalla;
+* screenshots;
 * videos;
 * logs;
 * stack traces;
-* ejemplos reproducibles;
+* reproducible examples;
 * benchmarks;
-* diagramas;
-* enlaces;
-* resultados de pruebas.
+* diagrams;
+* links;
+* test results.
 
-**No necesitas escribir código para aportar valor.**
+**You don't need to write code to add value.**
 
-Si tu aporte resulta útil para TollAI, yo invertiré mi propio tiempo en analizarlo y, cuando corresponda, convertir esa información en una implementación.
+If your contribution is useful for TollAI, I will invest my own time to analyze it, and when appropriate, convert that information into an implementation.
 
-También daré reconocimiento a quienes contribuyan con ideas, investigaciones, descubrimientos, casos de uso o propuestas que ayuden a mejorar el proyecto.
+I will also give recognition to those who contribute ideas, research, discoveries, use cases, or proposals that help improve the project.
+
+Thank you again for your interest in TollAI.
+
+**Att. @andresguc1**
 
 ---
 
@@ -48,15 +52,15 @@ También daré reconocimiento a quienes contribuyan con ideas, investigaciones, 
 
 Please select the type of contribution you're making (required):
 
-- [ ] 🐛 Bug / Issue — Encontré un comportamiento incorrecto o un problema
-- [ ] 💡 New Use Case — Encontré un caso de uso que TollAI debería soportar
-- [ ] 🚀 Feature Proposal — Tengo una propuesta para una nueva funcionalidad
-- [ ] 🔬 Research / Investigación — Investigué una tecnología, enfoque o problema y encontré información relevante
-- [ ] 🔐 Security Finding — Encontré un posible problema de seguridad
-- [ ] 📊 Benchmark / Evidence — Probé TollAI en determinadas condiciones y obtuve estos resultados
-- [ ] 🎨 UX / UI Feedback — Encontré un problema de experiencia de usuario o mejora de interfaz
-- [ ] 📚 Documentation — Encontré información que debería documentarse
-- [ ] 🔧 Code Contribution — Implementé una solución
+- [ ] 🐛 Bug / Issue — I found incorrect behavior or a problem
+- [ ] 💡 New Use Case — I found a use case that TollAI should support
+- [ ] 🚀 Feature Proposal — I have a proposal for new functionality
+- [ ] 🔬 Research / Research — I investigated a technology, approach, or problem and found relevant information
+- [ ] 🔐 Security Finding — I found a potential security issue
+- [ ] 📊 Benchmark / Evidence — I tested TollAI under certain conditions and obtained results
+- [ ] 🎨 UX / UI Feedback — I found a user experience or interface issue
+- [ ] 📚 Documentation — I found information that should be documented
+- [ ] 🔧 Code Contribution — I implemented a solution
 
 ---
 
@@ -75,15 +79,15 @@ Please select the type of contribution you're making (required):
 ## Evidence
 
 <!-- Provide evidence for your contribution. This could include:
-* capturas de pantalla;
+* screenshots;
 * videos;
 * logs;
 * stack traces;
-* ejemplos reproducibles;
+* reproducible examples;
 * benchmarks;
-* diagramas;
-* enlaces;
-* resultados de pruebas.
+* diagrams;
+* links;
+* test results.
 
 This field is highly recommended for all contribution types. If your contribution is based purely on research without concrete evidence, explain your reasoning and sources. -->
 

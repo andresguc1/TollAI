@@ -3,19 +3,15 @@
   "version": "1.0.0",
   "description": "TollAI - Cognitive Toll Protocol PoC for Autonomous AI Agent Defense",
   "main": "server.js",
-  "module": "public/tollai-client.js",
-  "types": "tollai-lib/middleware.d.ts",
   "exports": {
-    ".": "./server.js",
-    "./pow": "./toll-ai/pow.js",
-    "./middleware": "./toll-ai/middleware.js"
+    ".": "./server.js"
   },
   "engines": {
     "node": ">=14.0.0"
   },
   "files": [
     "server.js",
-    "toll-ai/",
+    "lib/",
     "public/",
     "test/"
   ],
@@ -34,7 +30,8 @@
     "test": "node attackers/agent-simulator.js --all",
     "test:flows": "node test/toll-flows.js",
     "test:client": "node test/toll-client.js",
-    "test:all": "npm run test:flows && npm run test:client && npm test",
+    "test:unit": "node --test \"tollai/test/**/*.test.js\"",
+    "test:all": "npm run test:unit && npm run test:flows && npm run test:client && npm test",
     "test:load": "node test/load-test.js",
     "stop": "lsof -ti:3000,3001 | xargs kill -9 2>/dev/null; echo '✅ Servers stopped (ports 3000, 3001)'"
   },

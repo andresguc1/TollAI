@@ -1,4 +1,4 @@
-/* Runs public/tollai-client.js in a browser-shaped sandbox against the live
+/* Runs tollai/client/tollai-client.js in a browser-shaped sandbox against the live
  * server, so the real bootstrap path is exercised (this is where the
  * fetch-patching recursion used to deadlock).
  */
@@ -7,7 +7,7 @@ const path = require('path');
 const vm = require('vm');
 const http = require('http');
 
-const CLIENT = path.join(__dirname, '..', 'public', 'tollai-client.js');
+const CLIENT = path.join(__dirname, '..', 'tollai', 'client', 'tollai-client.js');
 const BASE = { hostname: 'localhost', port: 3000 };
 const ORIGIN = 'http://localhost:3000';
 
@@ -195,20 +195,25 @@ watchdog.unref();
   check('reads stay instant while dwell is still unpaid',
     readOk.status === 200, `status ${readOk.status}`);
 
-  // Let the human actually look at the page.
+  // Let the human actually look at the page. The refreshed session token comes
+  // back on every beat as set-cookie, so rotate it like a browser jar would.
   let dwellSettled = false;
+  let dwellJar = isolated;
   for (let i = 0; i < 6 && !dwellSettled; i++) {
     await new Promise(r => setTimeout(r, 400));
-    const beat = await (await nodeFetch('/tollai/dwell', {
-      method: 'POST', headers: { Cookie: isolated }
-    })).json();
+    const beatRes = await nodeFetch('/tollai/dwell', {
+      method: 'POST', headers: { Cookie: dwellJar }
+    });
+    const sc = beatRes.rawHeaders['set-cookie'] || [];
+    if (sc.length) dwellJar = sc.map(c => c.split(';')[0]).join('; ');
+    const beat = await beatRes.json();
     dwellSettled = !!beat.settled;
   }
   check('dwell heartbeats accumulate until settled', dwellSettled);
 
   const afterDwell = await nodeFetch('/api/finance/transfer', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: isolated },
+    headers: { 'Content-Type': 'application/json', Cookie: dwellJar },
     body: JSON.stringify({ amount: 100, recipient: 'ACC-1' })
   });
   check('mutation succeeds once dwell is settled',

@@ -1,41 +1,41 @@
 # Bug Report
 
-Gracias por tomarte el tiempo de reportar este bug. Tu ayuda es valiosa para mejorar TollAI.
+Thanks for taking the time to report this bug. Your help is valuable for improving TollAI.
 
-## Descripción del bug
+## Bug Description
 
-<!-- Descripción clara y concisa del problema -->
+<!-- Clear and concise description of the problem -->
 
-## Comportamiento esperado
+## Expected Behavior
 
-<!-- Qué esperabas que sucediera -->
+<!-- What you expected to happen -->
 
-## Comportamiento actual
+## Actual Behavior
 
-<!-- Qué está pasando realmente -->
+<!-- What is actually happening -->
 
-## Pasos para reproducir
+## Steps to Reproduce
 
 1. 
 2. 
 3. 
 
-## Entorno
+## Environment
 
-* Sistema operativo: [ej. macOS, Windows, Linux]
-* Nodo: [ej. servidor.js, tollai-lib]
-* Versión: [ej. 1.0.0]
+* OS: [e.g. macOS, Windows, Linux]
+* Node: [e.g. server.js, tollai-lib]
+* Version: [e.g. 1.0.0]
 
-## Evidencia
+## Evidence
 
-<!-- Capturas de pantalla, logs, stack traces, benchmarks, o cualquier otro evidencia:
-* capturas de pantalla;
+<!-- Screenshots, logs, stack traces, benchmarks, or any other evidence:
+* screenshots;
 * logs;
 * stack traces;
-* ejemplos reproducibles;
+* reproducible examples;
 * benchmarks;
-* diagramas; -->
+* diagrams; -->
 
-## Información adicional
+## Additional Context
 
-<!-- Contexto adicional o información sobre el entorno de ejecución -->
+<!-- Additional context or information about the runtime environment -->

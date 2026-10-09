@@ -1,32 +1,32 @@
 # Feature Request
 
-Gracias por considerar contribuir con una propuesta de funcionalidad. Tus ideas ayudan a dar forma al futuro de TollAI.
+Thank you for considering contributing a feature proposal. Your ideas help shape the future of TollAI.
 
-## Descripción de la funcionalidad
+## Description of the Feature
 
-<!-- Descripción clara y concisa de la funcionalidad solicitada -->
+<!-- Clear and concise description of the requested functionality -->
 
-## Caso de uso
+## Use Case
 
-<!-- ¿Qué problema resuelve esta funcionalidad? ¿Qué caso de uso habilita? -->
+<!-- What problem does this feature solve? What use case does it enable? -->
 
-## Valor para TollAI
+## Value for TollAI
 
-<!-- ¿Por qué esta funcionalidad sería valiosa para el proyecto? -->
+<!-- Why would this feature be valuable for the project? -->
 
-## Alternativas consideradas
+## Considered Alternatives
 
-<!-- Has considerado alguna alternativa para resolver este problema? -->
+<!-- Have you considered any alternative ways to solve this problem? -->
 
-## Evidencia o investigación
+## Evidence or Research
 
-<!-- ¿Hay datos, benchmarks o investigaciones que respalden esta solicitud?
-* capturas de pantalla;
+<!-- Are there data, benchmarks, or research that support this request?
+* screenshots;
 * logs;
 * benchmarks;
-* enlaces a artículos o documentos;
-* resultados de pruebas; -->
+* links to articles or documents;
+* test results; -->
 
-## Información adicional
+## Additional Information
 
-<!-- Contexto adicional, mockups, diagramas, o cualquier otra información relevante -->
+<!-- Additional context, mockups, diagrams, or any other relevant information -->

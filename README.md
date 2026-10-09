@@ -105,23 +105,79 @@ TOLLAI_POW_DIFFICULTY=14   # 14 ≈ 450 ms in a browser; 16 ≈ 1.8 s
 ```
 tollai-poc/
 ├── package.json                 # Dependencies & scripts
-├── server.js                    # Express: 12 scenarios + TollAI protocol routes
-├── toll-ai/
-│   ├── middleware.js            # Cookie, fingerprint, dwell, burst, 433 fallback
-│   └── pow.js                   # ProofOfWork + SessionStore
+├── server.js                    # Express: 12 scenarios + mounts the tollai/ middleware
+├── lib/telemetry.js             # Telemetry store (none | file | redis)
+├── tollai/                      # The toll engine (ESM, zero dependencies)
+│   ├── core/                    # createToll(): PoW, sessions, dwell, burst, 433 challenge
+│   ├── adapters/                # express, node-http, vercel, cloudflare, firebase
+│   ├── client/tollai-client.js  # Browser client (served at /tollai-client.js)
+│   ├── types/                   # TypeScript declarations
+│   └── test/                    # 170 unit tests (npm run test:unit)
 ├── attacker-config.js           # Attacker control panel (port 3001)
 ├── attackers/
 │   └── agent-simulator.js       # Autonomous agent simulator (12 scenarios)
 ├── test/
 │   ├── toll-flows.js            # 9 checks: human vs agent, end to end
-│   ├── toll-client.js           # 14 checks: real client in a browser sandbox
+│   ├── toll-client.js           # 15 checks: real client in a browser sandbox
 │   └── restart-server.sh        # Clean detached start for the test suites
 └── public/
-    ├── tollai-client.js         # JS SHA-256, PoW, fetch patch, dwell heartbeat
     ├── tollai-dashboard.html    # SOC dashboard (served at /)
     ├── *-portal.html            # The 12 portals
     └── attacker/index.html      # Attacker panel (served only on port 3001)
 ```
+## 📦 The `tollai/` Engine
+
+The engine lives in the local `tollai/` package — ESM, zero runtime dependencies,
+Node >= 20.19. It exports `createToll()` plus framework adapters.
+
+### Quick Usage in Your Own Project
+
+```javascript
+const fs = require('fs');
+const { createToll } = require('./tollai/core/index.js');
+const { tollaiMiddleware } = require('./tollai/adapters/express.js');
+
+const toll = createToll({
+  mode: 'gate',               // 'gate' | 'api' | 'off'
+  powDifficulty: 14,          // 14 ≈ 450 ms in a browser
+  minDwellMs: 1500,           // dwell required before POST mutations (ms)
+  minResponseTime: 1500,      // answers faster than this are blocked (ms)
+  challengeTTL: 60000,        // 433 challenge TTL (ms)
+  clientPath: '/tollai-client.js',
+  clientSource: fs.readFileSync('./tollai/client/tollai-client.js', 'utf8'),
+  onDecision: (d) => console.log(d.decision, d.path, d.scenario),
+  onAIAgentDetected: (a) => console.warn('agent blocked:', a.reason, a.ip)
+});
+
+// Protect any POST endpoint; the middleware calls next() or writes the toll response.
+app.post('/api/data', tollaiMiddleware(toll), (req, res) => {
+  // Only reaches here for a human or a session-valid caller.
+  res.json({ ok: true, data: req.body });
+});
+```
+
+### Adapters
+
+| Adapter | Import | Entry point |
+|---------|--------|-------------|
+| Express | `tollai/adapters/express.js` | `tollaiMiddleware(toll)`, `createTollaiMiddleware(toll)` |
+| Node `http` | `tollai/adapters/node-http.js` | `runNode(req, res, next, toll)`, `createTollaiMiddleware(toll)` |
+| Vercel | `tollai/adapters/vercel.js` | `tollaiVercel(toll, downstream?)` |
+| Cloudflare | `tollai/adapters/cloudflare.js` | `createCloudflareTollHandler(toll, origin?)` |
+| Firebase | `tollai/adapters/firebase.js` | `tollaiOnRequest(toll, downstream)` |
+
+The protocol endpoints (`/tollai/challenge`, `/tollai/verify`, `/tollai/dwell`,
+`/tollai/status`, `/tollai/client.js`) are answered by the core before any policy
+runs, so they are never tolled. `server.js` serves the browser client separately at
+`/tollai-client.js` (a single canonical copy that cannot drift).
+
+### Serverless deployments
+
+For serverless hosts, lower `powDifficulty` (e.g. `12`) and keep `minDwellMs`
+below the platform's max request duration. `challengeTTL` should stay comfortably
+above cold-start latency.
+
+
 
 ## 🚀 Quick Start
 
@@ -324,7 +380,7 @@ npm run test:all          # everything
 
 Expected: `9/9`, `15/15` and `12/12 blocked · 100% effectiveness`.
 
-The client suite runs `public/tollai-client.js` inside a `vm` sandbox with a fake
+The client suite runs `tollai/client/tollai-client.js` inside a `vm` sandbox with a fake
 DOM and a real HTTP stack, so the actual bootstrap path is exercised — including
 the fetch-patch recursion and the dwell retry loop that would otherwise hang.
 

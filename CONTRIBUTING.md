@@ -7,14 +7,15 @@ Thank you for your interest in contributing to TollAI! 🎉
 TollAI doesn't need more code for the sake of having more code. We need:
 - **Better ideas** — Research, use cases, and evidence that help us decide what's worth building
 - **Better investigations** — Bug reports, security findings, and architecture problems
-- **Better evidence** — Benchmarks, benchmarks, and real-world results
+- **Better evidence** — Benchmarks, real-world results
 - **Better context** — Documentation, diagrams, and clear descriptions
 
-## � how to Contribute
+## 📋 How to Contribute
 
 You can contribute in many ways that **don't require writing code**:
 
 ### 🐛 Report a Bug
+
 Find a behavior that seems incorrect? Open an Issue with:
 - What you expected to happen
 - What actually happened
@@ -22,18 +23,21 @@ Find a behavior that seems incorrect? Open an Issue with:
 - Any evidence (logs, screenshots, benchmarks)
 
 ### 💡 Propose a Use Case or Feature
+
 Share a scenario or functionality you'd like to see:
 - What problem does it solve?
 - Why is it valuable?
 - Any evidence or use cases?
 
 ### 🔬 Share Research
+
 Investigate a technology, approach, or problem and share your findings:
 - What did you research?
 - What did you find?
 - What evidence supports your findings?
 
 ### 📊 Provide Evidence
+
 Run TollAI in your own environment and share results:
 - Benchmarks comparing performance
 - Different scenario outcomes
@@ -41,17 +45,19 @@ Run TollAI in your own environment and share results:
 - Any reproducible examples
 
 ### 📚 Improve Documentation
+
 - Fix typos or clarify explanations
 - Add missing scenario descriptions
 - Improve the README
 - Add diagrams or examples
 
 ### 🎨 UX/UI Feedback
+
 - Report usability issues
 - Suggest interface improvements
 - Share screen navigation feedback
 
-## � Pull Request Process
+## 🔄 Pull Request Process
 
 If you'd like to submit a Pull Request:
 
@@ -63,11 +69,11 @@ If you'd like to submit a Pull Request:
 
 **Remember**: You don't need to write code to contribute value. Your knowledge, research, and evidence are just as important!
 
-## � Recognition
+## 🏆 Recognition
 
 All contributors who help improve TollAI — whether through code, research, bug reports, use cases, or evidence — will be acknowledged in the project.
 
-## 📬 Questions?
+## ❓ Questions?
 
 Open an Issue if you have questions about the contribution process.
 

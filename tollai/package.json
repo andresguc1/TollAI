@@ -1,0 +1,64 @@
+{
+  "name": "tollai",
+  "version": "2.0.0",
+  "description": "Universal zero-dependency cognitive toll: proof-of-work, sessions, dwell and anti-burst that distinguishes humans from autonomous agents. Framework-agnostic core with adapters for node-http, Express, Vercel, Cloudflare and Firebase.",
+  "keywords": [
+    "bot-detection",
+    "proof-of-work",
+    "rate-limiting",
+    "security",
+    "agents",
+    "toll"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "default": "./core/index.js"
+    },
+    "./node-http": {
+      "types": "./types/node-http.d.ts",
+      "default": "./adapters/node-http.js"
+    },
+    "./express": {
+      "types": "./types/express.d.ts",
+      "default": "./adapters/express.js"
+    },
+    "./vercel": {
+      "types": "./types/vercel.d.ts",
+      "default": "./adapters/vercel.js"
+    },
+    "./cloudflare": {
+      "types": "./types/cloudflare.d.ts",
+      "default": "./adapters/cloudflare.js"
+    },
+    "./firebase": {
+      "types": "./types/firebase.d.ts",
+      "default": "./adapters/firebase.js"
+    },
+    "./client": {
+      "types": "./types/client.d.ts",
+      "default": "./client/client-source.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./core/index.js",
+  "types": "./types/index.d.ts",
+  "files": [
+    "core/",
+    "adapters/",
+    "client/tollai-client.js",
+    "client/client-source.js",
+    "types/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "build:client": "node scripts/build-client.mjs"
+  },
+  "dependencies": {}
+}

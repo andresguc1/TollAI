@@ -54,8 +54,10 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const TollAI = require('./toll-ai/middleware');
-const { Telemetry } = require('./toll-ai/telemetry');
+// The toll engine is the local tollai/ package (ESM, loaded via require(esm)).
+const { createToll } = require('./tollai/core/index.js');
+const { tollaiMiddleware } = require('./tollai/adapters/express.js');
+const { Telemetry } = require('./lib/telemetry');
 
 // Persistence config from env
 const TELEMETRY_PERSIST = process.env.TELEMETRY_PERSIST || 'none'; // 'none' | 'file' | 'redis'
@@ -78,6 +80,18 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Single browser-client source: the package copy is canonical and served here,
+// so public/ no longer ships a duplicate that could drift.
+const CLIENT_SOURCE = fs.readFileSync(
+  path.join(__dirname, 'tollai', 'client', 'tollai-client.js'),
+  'utf8'
+);
+app.get('/tollai-client.js', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.type('application/javascript').send(CLIENT_SOURCE);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Minimal cookie parser — the session token is the only cookie we read.
@@ -103,9 +117,9 @@ const CLIENT_TAG = '<script src="/tollai-client.js"></script>';
 
 // Every page that can reach a tolled endpoint ships the client, so proof of
 // work is paid once in the background and the UI never blocks on it.
+// A browser without a session never reaches here: the toll core answers its
+// navigation with the attestation shell (tollai/core/shell.js) directly.
 function serveTolledPage(req, res, file) {
-  if (req.tollNeedsAttestation) return sendAttestationShell(req, res, req.tollScenario);
-
   const html = fs.readFileSync(path.join(__dirname, 'public', file), 'utf8');
   // If the session is already valid the client must not pay the toll again:
   // tell it up front so a page load costs zero CPU.
@@ -118,46 +132,83 @@ function serveTolledPage(req, res, file) {
     : html + sessionTag + CLIENT_TAG);
 }
 
-function sendAttestationShell(req, res, scenario) {
-  res.set('Cache-Control', 'no-store');
-  res.send(`<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>TollAI — Verifying</title>
-<style>
-  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
-    background:#0d1117;color:#e6edf3;font:400 15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  .box{text-align:center;max-width:340px;padding:0 20px}
-  .ring{width:34px;height:34px;margin:0 auto 18px;border:3px solid #30363d;border-top-color:#8250df;
-    border-radius:50%;animation:spin .8s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  h1{font-size:15px;font-weight:600;margin:0 0 6px}
-  p{margin:0;font-size:12.5px;color:#8b949e}
-  code{color:#d2a8ff;font-size:11.5px}
-</style></head>
-<body>
-  <div class="box">
-    <div class="ring"></div>
-    <h1>TollAI</h1>
-    <p>Paying the cognitive toll${scenario ? ` for <code>${scenario}</code>` : ''}…</p>
-  </div>
-  <script>
-    window.TOLLAI_RELOAD_URL = ${JSON.stringify(req.originalUrl)};
-  </script>
-  ${CLIENT_TAG}
-  <script>
-    window.TollAI.establish().then(function () { location.reload(); });
-  </script>
-</body></html>`);
+// ===== Telemetry bridges (core hooks -> PoC observability) =====
+// The core stays runtime-agnostic; everything dashboard-specific lives here.
+
+function identifyClient(userAgent) {
+  const agent = String(userAgent || 'unknown').toLowerCase();
+  if (/headless|phantom|puppeteer|playwright/.test(agent)) return 'headless';
+  // Agents often spoof a browser UA, so look for the tell-tale markers too.
+  if (/axios|node-fetch|got|requests|python|curl|wget|go-http|httpclient|bot|crawler|spider|scrap|ai-agent|autonomous|tollai-poc/.test(agent)) return 'agent';
+  if (/python-requests|httpx|scrapy/.test(agent)) return 'agent';
+  return 'browser';
 }
 
-const tollAI = new TollAI({
-  telemetry,
+// Core signals -> the decision vocabulary the telemetry counters understand.
+// Signals without a mapping (protocol, bypass, expired/unknown challenges)
+// produced no telemetry row in v1 either.
+const TELEMETRY_DECISION = {
+  'valid-session': 'transparent',
+  ATTESTATION_REQUIRED: 'attestation-required',
+  NO_JS_CLIENT: 'challenge-issued',
+  DWELL_REQUIRED: 'dwell-deferred',
+  REPROOF_REQUIRED: 'reproof',
+  WRONG_ANSWER: 'blocked',
+  IP_MISMATCH: 'blocked',
+  MAX_ATTEMPTS: 'blocked',
+  AI_AGENT_DETECTED: 'blocked',
+  CHALLENGE_VALIDATED: 'admitted'
+};
+
+function onDecision(d) {
+  const decision = TELEMETRY_DECISION[d.signal];
+  if (!decision) return;
+  telemetry.recordRequest({
+    ip: d.ip,
+    client: identifyClient(d.userAgent),
+    userAgent: d.userAgent || 'unknown',
+    method: d.method,
+    path: d.path,
+    mode: 'protected',
+    scenario: d.scenario,
+    requestId: d.requestId,
+    latencyMs: d.latencyMs,
+    decision,
+    signal: d.signal,
+    ...(d.reason ? { detail: String(d.reason) } : {}),
+    ...(d.dwellMs !== undefined ? { dwellMs: d.dwellMs, requiredMs: d.requiredMs } : {})
+  });
+}
+
+// The toll = the local tollai/ package. Explicit mounting (per route via
+// conditionalTollAI, plus the protocol routes below) means the policy only
+// has to approve wherever the middleware is actually attached.
+const toll = createToll({
+  secret: process.env.TOLLAI_SECRET || undefined,
+  mode: 'gate',
   minResponseTime: 1500,
   challengeTTL: 60000,
   powDifficulty: parseInt(process.env.TOLLAI_POW_DIFFICULTY || '14', 10),
+  clientPath: '/tollai-client.js',
+  clientSource: CLIENT_SOURCE,
+  onDecision,
+  onDwellDeferred: () => telemetry.noteDwellDeferred(),
   onSessionIssued: (data) => {
-    console.log(`   ✓ TollAI session issued  ${data.clientIP}  ${data.workMs}ms work (difficulty ${data.difficulty})`);
+    // Challenge admissions are recorded as 'admitted' telemetry already;
+    // only paid proof-of-work mints produce a proof row (v1 parity).
+    if (data.source === 'challenge') return;
+    console.log(`   ✓ TollAI session issued  ${data.ip}  ${data.workMs}ms work (difficulty ${data.difficulty})`);
+    telemetry.recordProof({
+      ip: data.ip,
+      client: identifyClient(data.userAgent),
+      userAgent: data.userAgent || 'unknown',
+      challenge: data.challenge,
+      nonce: data.nonce,
+      difficulty: data.difficulty,
+      hashes: data.hashes,
+      poWMs: data.workMs,
+      verifiedInMs: data.verifyMs
+    });
   },
   onAIAgentDetected: (a) => {
     const REASONS = {
@@ -167,81 +218,47 @@ const tollAI = new TollAI({
     const row = (label, value) =>
       `██  ║  ${label.padEnd(20)}${String(value).substring(0, 53).padEnd(53)}║  ██`;
 
-    console.log('\n' + '\u2588'.repeat(80));
-    console.log('\u2588\u2588  \u2550' + '\u2550'.repeat(70) + '\u2550  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551                          \ud83d\udea8 TOLLAI SOC ALERT \ud83d\udea8                              \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u2560' + '\u2550'.repeat(70) + '\u2557  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551  DETECTED: Autonomous AI Agent / Automated Bot                               \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551  \u2500'.repeat(44) + '\u2500\u2500\u2500\u2500  \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551  ' + REASONS[a.reason] + '                              \u2551  \u2588\u2588');
-    console.log(row('\ud83c\udfaf Attacker IP:', a.clientIP));
-    console.log(row('\ud83d\udccb Scenario:', a.scenario));
+    console.log('\n' + '█'.repeat(80));
+    console.log('██  ═' + '═'.repeat(70) + '═  ██');
+    console.log('██  ║                          🚨 TOLLAI SOC ALERT 🚨                              ║  ██');
+    console.log('██  ╠' + '═'.repeat(70) + '╣  ██');
+    console.log('██  ║  DETECTED: Autonomous AI Agent / Automated Bot                               ║  ██');
+    console.log('██  ║  ' + '─'.repeat(44) + '────  ║  ██');
+    console.log('██  ║  ' + (REASONS[a.reason] || a.reason) + '                              ║  ██');
+    console.log(row('🎯 Attacker IP:', a.ip));
+    console.log(row('📋 Scenario:', a.scenario));
     if (a.reason === 'MACHINE_SPEED') {
-      console.log('\u2588\u2588  \u2551  \u26a1 Response Time:      ' + String(a.responseTime).padEnd(8) + 'ms' + ' '.repeat(42) + '\u2551  \u2588\u2588');
-      console.log('\u2588\u2588  \u2551  \ud83d\udccf Threshold:          ' + String(a.threshold).padEnd(8) + 'ms' + ' '.repeat(42) + '\u2551  \u2588\u2588');
+      console.log('██  ║  ⚡ Response Time:      ' + String(a.response_time_ms).padEnd(8) + 'ms' + ' '.repeat(42) + '║  ██');
+      console.log('██  ║  📏 Threshold:          ' + String(a.minimum_required_ms).padEnd(8) + 'ms' + ' '.repeat(42) + '║  ██');
     }
-    if (a.detail) console.log(row('\ud83d\udcc5 Detail:', a.detail));
-    console.log(row('\ud83d\udcca Signal Type:', a.challengeType || 'behavioural'));
-    console.log(row('\ud83d\udd50 Timestamp:', a.timestamp));
-    console.log(row('\ud83c\udf10 User-Agent:', a.userAgent));
-    console.log(row('\ud83c\udf10 Accept-Lang:', a.acceptLanguage));
-    console.log(row('\ud83c\udd11 Reference:', a.challengeId || '-'));
-    console.log('\u2588\u2588  \u2551  ' + '\u2500'.repeat(44) + '\u2500\u2500\u2500\u2500  \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551  \ud83d\udee1\ufe0f  ACTION: ACCESS BLOCKED - HTTP 403 (Autonomous Agent Mitigation)         \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u2551  \ud83d\udccb MITRE ATT&CK: T1588.002 (Capabilities: Tool Acquisition)                 \u2551  \u2588\u2588');
-    console.log('\u2588\u2588  \u255d' + '\u2550'.repeat(70) + '\u255a  \u2588\u2588');
-    console.log('\u2588'.repeat(80) + '\n');
+    if (a.reason === 'BURST_RATE') {
+      console.log(row('⚡ Limit:', `${a.limit} req / ${a.windowMs}ms${a.source ? ' (' + a.source + ')' : ''}`));
+    }
+    console.log(row('📊 Signal Type:', a.challengeType || 'behavioural'));
+    console.log(row('🕒 Timestamp:', a.timestamp));
+    console.log(row('🌐 User-Agent:', a.userAgent));
+    console.log(row('🌐 Accept-Lang:', a.acceptLanguage));
+    console.log(row('🔑 Reference:', a.requestId || '-'));
+    console.log('██  ║  ' + '─'.repeat(44) + '────  ║  ██');
+    console.log('██  ║  🛡️  ACTION: ACCESS BLOCKED - HTTP 403 (Autonomous Agent Mitigation)         ║  ██');
+    console.log('██  ║  📋 MITRE ATT&CK: T1588.002 (Capabilities: Tool Acquisition)                 ║  ██');
+    console.log('██  ╚' + '═'.repeat(70) + '═  ██');
+    console.log('█'.repeat(80) + '\n');
   }
 });
+
+// Express middleware wrapping the core; mounted per route (toll decisions,
+// dwell, bursts) and on the protocol routes the browser pays into.
+const tollMw = tollaiMiddleware(toll);
 
 // ===== TollAI protocol endpoints (never tolled) =====
-// The browser pays the toll here, silently, once per session.
-app.get('/tollai/challenge', (req, res) => {
-  res.set('Cache-Control', 'no-store');
-  res.json(tollAI.issueProofChallenge());
-});
-
-app.post('/tollai/verify', (req, res) => {
-  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
-  const { challenge, nonce } = req.body || {};
-
-  const result = tollAI.verifyProof({ challenge, nonce });
-
-  if (!result.ok) {
-    return res.status(403).json({
-      verified: false,
-      code: result.reason,
-      achieved_bits: result.achieved,
-      required_bits: result.difficulty || null
-    });
-  }
-
-  const token = tollAI.mintSession(clientIP, {
-    workMs: result.workMs,
-    difficulty: result.difficulty,
-    userAgent: req.headers['user-agent'] || 'unknown'
-  });
-
-  telemetry.recordProof({
-    ip: clientIP,
-    client: 'browser',
-    userAgent: req.headers['user-agent'] || 'unknown',
-    challenge,
-    nonce,
-    difficulty: result.difficulty,
-    hashes: Number(nonce) + 1,
-    poWMs: result.workMs,
-    verifiedInMs: result.verifyMs
-  });
-
-  res.cookie('tollai_session', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 15 * 60 * 1000
-  });
-
-  res.json({ verified: true, work_ms: result.workMs, difficulty: result.difficulty });
-});
+// Served by the core itself; the browser pays the toll here, silently,
+// once per session: challenge issue, PoW verify + session cookie,
+// dwell heartbeats and session status.
+app.get('/tollai/challenge', tollMw);
+app.post('/tollai/verify', tollMw);
+app.post('/tollai/dwell', tollMw);
+app.get('/tollai/status', tollMw);
 
 app.get('/tollai/telemetry', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '200', 10) || 200, telemetry.maxEvents);
@@ -302,33 +319,8 @@ app.post('/tollai/attack-events', express.json(), (req, res) => {
   res.json({ status: 'recorded', count: events.length });
 });
 
-app.get('/tollai/status', (req, res) => {
-  res.json({ status: 'ok', ...tollAI.stats });
-});
-
-// Dwell heartbeat: the page reports that a human is actually looking at it.
-// Charged against the session, capped server-side, and invisible to the user.
-app.post('/tollai/dwell', (req, res) => {
-  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
-  const token = req.cookies && req.cookies.tollai_session;
-
-  if (!token) return res.status(401).json({ ok: false, code: 'NO_SESSION' });
-
-  const result = tollAI.sessions.get(token, clientIP);
-  if (!result.ok) return res.status(401).json({ ok: false, code: result.reason });
-
-  const session = result.session;
-
-  const dwellMs = tollAI.sessions.markDwell(session);
-  tollAI.sessions.touch(token, session);
-
-  res.json({
-    ok: true,
-    dwell_ms: Math.round(dwellMs),
-    required_ms: tollAI.minDwellMs,
-    settled: dwellMs >= tollAI.minDwellMs
-  });
-});
+// Dwell heartbeats and session status are served by the core above
+// (app.post('/tollai/dwell') / app.get('/tollai/status')).
 
 // Mode detection middleware - checks for x-tollai-mode header or query param
 // In production, mode switch requires valid HMAC signature to prevent tampering
@@ -376,7 +368,7 @@ function conditionalTollAI(scenario) {
   return (req, res, next) => {
     req.tollScenario = scenario;
     if (req.tollMode === 'protected') {
-      return tollAI.middleware()(req, res, next);
+      return tollMw(req, res, next);
     }
     // Unprotected mode - bypass TollAI, add mock metadata
     req.tollMetadata = { 
@@ -1181,7 +1173,6 @@ const server = app.listen(PORT, () => {
 
 process.on('SIGINT', async () => {
   console.log('\n🛑 Shutting down TollAI server...');
-  tollAI.destroy();
   await telemetry.destroy();
   server.close(() => process.exit(0));
 });

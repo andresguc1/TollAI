@@ -5,6 +5,9 @@
  */
 const http = require('http');
 const crypto = require('crypto');
+// The 433 challenge ships obfuscated (ciphertext + meta); the solver needs
+// the decoded plaintext question.
+const { decodeChallenge } = require('../tollai/core/challenge.js');
 
 const BASE = 'http://localhost:3000';
 
@@ -124,7 +127,7 @@ function check(name, pass, detail) {
     headers: AGENT_HEADERS, body: { episode_id: 'ALL', asr: true }
   });
   check('agent gets the reasoning challenge (433)',
-    agentFirst.status === 433 && agentFirst.json && !!agentFirst.json.challenge,
+    agentFirst.status === 433 && agentFirst.json && !!agentFirst.json.ciphertext && !!agentFirst.json.challenge_id,
     `status ${agentFirst.status}`);
 
   const agentNoSession = await request('GET', '/api/news', { headers: AGENT_HEADERS });
@@ -145,7 +148,8 @@ function check(name, pass, detail) {
   }
   const solveLocal = eval('({' + src.slice(start, end + 1) + '})._solveLocal');
 
-  const answer = solveLocal({ question: agentFirst.json.challenge }).value;
+  const question = decodeChallenge(agentFirst.json.ciphertext, agentFirst.json.meta);
+  const answer = solveLocal({ question }).value;
   const solved = await request('POST', '/api/podcast/transcript', {
     headers: {
       ...AGENT_HEADERS,

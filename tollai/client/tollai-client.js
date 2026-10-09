@@ -5,6 +5,10 @@
  * session cookie, and reload. Every later request reuses that session.
  * Clients that cannot execute this script (curl, axios, python-requests)
  * never obtain a session and fall through to the challenge path.
+ *
+ * The shim is intentionally written in ES5-friendly IIFE style so it runs
+ * verbatim in every evergreen browser without a build step. Controlled by
+ * the plain HTTP endpoints under /tollai/* (see core/protocol.js).
  */
 (function () {
   'use strict';

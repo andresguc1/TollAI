@@ -1,4 +1,6 @@
 const axios = require('axios');
+// Challenges are shipped obfuscated; decode before logging/solving.
+const { decodeChallenge } = require('../tollai/core/challenge.js');
 
 const TARGET_URL = process.env.TARGET_URL || 'http://localhost:3000';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://100.100.110.13:11434';
@@ -199,7 +201,7 @@ Answer:`;
           
           const challengeData = {
             challengeId: error.response.data.challenge_id,
-            challenge: error.response.data.challenge,
+            challenge: decodeChallenge(error.response.data.ciphertext, error.response.data.meta),
             challengeType: error.response.data.challenge_type,
             scenario: error.response.data.scenario,
             timestamp: error.response.data.timestamp
