@@ -2,6 +2,7 @@ import { randomHex } from './crypto.js';
 import { createProtocol } from './protocol.js';
 import { createPolicy } from './policy.js';
 import { generateChallenge, validateResponse } from './challenge.js';
+import { generateChallenge as generateChallengeEnhanced } from './challenge-enhanced.js';
 import {
   headerGet,
   looksLikeBrowser,
@@ -11,7 +12,8 @@ import {
   json,
   html,
 } from './http.js';
-import { MemoryStore } from './memory-store.js';
+import { createStore } from './store/index.js';
+import { MemoryStore } from './store/memory-store.js';
 import { ProofOfWork } from './pow.js';
 import {
   createSession,
@@ -22,6 +24,8 @@ import {
   ipHashFor,
 } from './session.js';
 import { createShell } from './shell.js';
+import { RiskEngine } from './scoring/risk-engine.js';
+import { createTimer } from './timings.js';
 
 export const DEFAULT_OPTIONS = {
   mode: 'api',
@@ -39,8 +43,20 @@ export const DEFAULT_OPTIONS = {
   rateLimit: 30,
   sessionQuota: 120,
   maxSessions: 10000,
+  preSessionLimit: 10,
+  preSessionWindowMs: 60000,
+  failOpen: true,
   clientSource: '',
   clientPath: '/tollai/client.js',
+  timeProfile: {},
+  autoCalibrate: true,
+  maxConcurrentSessionsPerIp: 0,
+  exempt: undefined,
+  store: undefined,
+  storeType: 'memory',
+  scoring: { enabled: true },
+  enhancedChallenges: true,
+  trace: true,
 };
 
 const FOREVER = () => false;
@@ -64,7 +80,8 @@ export function createToll(options = {}) {
   }
 
   const now = typeof opts.now === 'function' ? opts.now : () => Date.now();
-  const store = new MemoryStore({ max: opts.maxSessions });
+  const store = opts.store || createStore({ type: opts.storeType, max: opts.maxSessions });
+  const riskEngine = new RiskEngine({ enabled: opts.scoring && opts.scoring.enabled !== false, weights: opts.scoring && opts.scoring.weights });
   const records = new Map();
   let sweepCounter = 0;
 
@@ -87,6 +104,8 @@ export function createToll(options = {}) {
       secure: opts.secure === true,
       minDwellMs: opts.minDwellMs,
       minResponseTime: opts.minResponseTime,
+      preSessionLimit: opts.preSessionLimit,
+      preSessionWindowMs: opts.preSessionWindowMs,
     },
   });
 
@@ -99,7 +118,27 @@ export function createToll(options = {}) {
     }
   }
 
-  async function handle(request, ctx = {}) {
+  // Pre-session rate limit: a share of the shared counter store keyed by ipHash.
+  // Guards both the protocol endpoints and the 433 one-shot path from burst
+  // bots, so maxSessions/records can't be exhausted by challenge farming.
+  function preSessionExceeded(ipHashVal) {
+    const count = store.incr(`pre:${ipHashVal}`, opts.preSessionWindowMs, now());
+    return count > opts.preSessionLimit;
+  }
+
+  // Track concurrent sessions per IP. When maxConcurrentSessionsPerIp > 0, the
+  // IP is temporarily blocked from starting new sessions once the threshold is
+  // reached. The counter is keyed by ipHash and expires after a short window.
+  function checkMaxConcurrentSessions(ipHashVal) {
+    if (opts.maxConcurrentSessionsPerIp <= 0) return false;
+    const key = `concurrent:${ipHashVal}`;
+    const count = store.incr(key, 60000, now());
+    return count > opts.maxConcurrentSessionsPerIp;
+  }
+
+  async function toll(request, ctx = {}) {
+    const timer = opts.trace !== false ? createTimer() : null;
+    timer && timer.mark('ingress');
     const start = now();
     const url = new URL(request.url);
     const method = String(request.method || 'GET').toUpperCase();
@@ -125,7 +164,40 @@ export function createToll(options = {}) {
     const mode = ctx.mode || opts.mode;
     if (mode === 'off') return null;
 
+    // Check max concurrent sessions per IP (Fase 1.4).
+    if (checkMaxConcurrentSessions(ipHash)) {
+      ctx.tollMetadata = { transparent: false, reason: 'max-concurrent' };
+      ctx.out.headers['x-tollai-decision'] = 'bypass';
+      return null;
+    }
+
+    // Apply time profile thresholds from autoCalibrate if enabled.
+    const timeProfile = opts.timeProfile || {};
+    const autoCalibrate = opts.autoCalibrate !== false;
+    let responseTimeThreshold = opts.minResponseTime; // fallback
+    if (autoCalibrate && timeProfile[requestScenario]) {
+      const profile = timeProfile[requestScenario];
+      if (profile && profile.p95 !== undefined) {
+        responseTimeThreshold = profile.p95 * (profile.margin ?? 1.2);
+      }
+    }
+
+    // Check exempt patterns/callbacks (Fase 1.5).
+    const exempt = opts.exempt;
+    if (exempt) {
+      const exemptResult = typeof exempt === 'function'
+        ? exempt({ request, ctx, ip, ipHash, scenario: requestScenario, mode })
+        : false;
+      if (exemptResult) {
+        ctx.tollMetadata = { transparent: false, reason: 'exempt' };
+        ctx.out.headers['x-tollai-decision'] = 'bypass';
+        return null;
+      }
+    }
+
     function finalize(response, decision, extra = {}) {
+      timer && timer.mark('response_prep');
+      const risk = extra.riskScore !== undefined ? { score: extra.riskScore, factors: extra.riskFactors } : undefined;
       const payload = {
         signal: extra.signal || decision,
         decision,
@@ -138,6 +210,8 @@ export function createToll(options = {}) {
         mode,
         timestamp: now(),
         latencyMs: Math.max(0, Math.round(now() - start)),
+        ...(risk ? { riskScore: risk.score, riskFactors: risk.factors } : {}),
+        ...(timer ? { timings: timer.getTimings() } : {})
       };
       if (extra) Object.assign(payload, extra);
       if (opts.onDecision) opts.onDecision(payload);
@@ -145,6 +219,14 @@ export function createToll(options = {}) {
       ctx.out.headers['x-tollai-decision'] = decision;
       ctx.out.headers['x-request-id'] = requestId;
       ctx.out.headers['x-tollai-latency-ms'] = String(payload.latencyMs);
+
+      // Shadow mode: every decision is computed and recorded (X-TollAI-Decision
+      // stays truthful) but nothing is ever enforced and no cookies are minted.
+      // Protocol endpoints still respond so the browser client can keep working.
+      if (opts.mode === 'observe' && decision !== 'protocol') {
+        ctx.out.setCookie = [];
+        return null;
+      }
 
       if (response === null) return null;
 
@@ -185,14 +267,17 @@ export function createToll(options = {}) {
     }
 
     // ---- protocol endpoints are never tolled ----
+    timer && timer.mark('evaluation');
     const protocolResponse = await protocol(request, { ip, now: now() });
     if (protocolResponse) {
+      timer && timer.mark('response');
       return finalize(protocolResponse, 'protocol', { signal: 'PROTOCOL' });
     }
 
     // ---- policy: should this request carry the toll? ----
     const policy = createPolicy({ mode, protect: opts.protect, exclude: opts.exclude });
     if (!policy.shouldToll(url.pathname)) {
+      timer && timer.mark('response');
       return finalize(null, 'bypass', { reason: 'not-protected' });
     }
 
@@ -204,12 +289,14 @@ export function createToll(options = {}) {
 
     if (sessionOutcome && sessionOutcome.reason === 'IP_MISMATCH') {
       ctx.tollMetadata = { transparent: false, reason: 'ip-mismatch' };
+      timer && timer.mark('response');
       return finalize(json({ code: 'IP_MISMATCH' }, { status: 403 }), 'ip-mismatch', {
         signal: 'IP_MISMATCH',
       });
     }
 
     if (sessionOutcome && sessionOutcome.ok) {
+      timer && timer.mark('session_handling');
       return await handleSession(sessionOutcome.session);
     }
 
@@ -219,10 +306,15 @@ export function createToll(options = {}) {
     async function handleSession(session) {
       const mutating = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method);
       const dwellMs = Math.round(session.dw || 0);
+      const riskCtx = riskEngine.evaluate({ headers: request.headers, ipHash, scenario: requestScenario, session });
+      ctx.tollMetadata = ctx.tollMetadata || {};
+      ctx.tollMetadata.riskScore = riskCtx.score;
+      ctx.tollMetadata.riskFactors = riskCtx.factors;
 
       if (mutating && dwellMs < opts.minDwellMs) {
         if (opts.onDwellDeferred) opts.onDwellDeferred({ dwellMs, requiredMs: opts.minDwellMs, ip });
-        ctx.tollMetadata = { transparent: false, reason: 'dwell' };
+        ctx.tollMetadata = { transparent: false, reason: 'dwell', ...ctx.tollMetadata };
+        timer && timer.mark('response');
         return finalize(
           json(
             {
@@ -236,16 +328,17 @@ export function createToll(options = {}) {
             { status: 428 },
           ),
           'dwell-deferred',
-          { signal: 'DWELL_REQUIRED', dwellMs, requiredMs: opts.minDwellMs },
+          { signal: 'DWELL_REQUIRED', dwellMs, requiredMs: opts.minDwellMs, riskScore: riskCtx.score, riskFactors: riskCtx.factors },
         );
       }
 
       const burstKey = `b:${session.sid}`;
       const quotaKey = `q:${session.sid}`;
       const burstCount = store.incr(burstKey, opts.rateWindowMs, now());
-      if (burstCount > opts.rateLimit) {
-        reportAgent('BURST_RATE', { limit: opts.rateLimit, windowMs: opts.rateWindowMs });
-        ctx.tollMetadata = { transparent: false, reason: 'burst-rate' };
+      if (burstCount > opts.rateLimit || riskCtx.score >= 75) {
+        reportAgent('BURST_RATE', { limit: opts.rateLimit, windowMs: opts.rateWindowMs, riskScore: riskCtx.score });
+        ctx.tollMetadata = { transparent: false, reason: 'burst-rate', ...ctx.tollMetadata };
+        timer && timer.mark('response');
         return finalize(
           json(
             {
@@ -257,13 +350,14 @@ export function createToll(options = {}) {
             { status: 403 },
           ),
           'ai-agent-detected',
-          { signal: 'AI_AGENT_DETECTED', reason: 'BURST_RATE' },
+          { signal: 'AI_AGENT_DETECTED', reason: 'BURST_RATE', riskScore: riskCtx.score, riskFactors: riskCtx.factors },
         );
       }
 
       const quotaCount = store.incr(quotaKey, opts.sessionTTL, now());
       if (quotaCount > opts.sessionQuota) {
-        ctx.tollMetadata = { transparent: false, reason: 'quota-exhausted' };
+        ctx.tollMetadata = { transparent: false, reason: 'quota-exhausted', ...ctx.tollMetadata };
+        timer && timer.mark('response');
         return finalize(
           json(
             {
@@ -275,7 +369,7 @@ export function createToll(options = {}) {
             { status: 428 },
           ),
           'reproof-required',
-          { signal: 'REPROOF_REQUIRED' },
+          { signal: 'REPROOF_REQUIRED', riskScore: riskCtx.score },
         );
       }
 
@@ -285,8 +379,9 @@ export function createToll(options = {}) {
         now: now(),
       });
       if (reg.burst) {
-        reportAgent('BURST_RATE', { source: 'token', limit: opts.rateLimit });
-        ctx.tollMetadata = { transparent: false, reason: 'token-burst' };
+        reportAgent('BURST_RATE', { source: 'token', limit: opts.rateLimit, riskScore: riskCtx.score });
+        ctx.tollMetadata = { transparent: false, reason: 'token-burst', ...ctx.tollMetadata };
+        timer && timer.mark('response');
         return finalize(
           json(
             {
@@ -298,7 +393,7 @@ export function createToll(options = {}) {
             { status: 403 },
           ),
           'ai-agent-detected',
-          { signal: 'AI_AGENT_DETECTED', reason: 'BURST_RATE', source: 'token' },
+          { signal: 'AI_AGENT_DETECTED', reason: 'BURST_RATE', source: 'token', riskScore: riskCtx.score },
         );
       }
 
@@ -312,14 +407,23 @@ export function createToll(options = {}) {
         transparent: true,
         dwellMs: Math.round(refreshed.dw || 0),
         scenario,
+        riskScore: riskCtx.score,
+        riskFactors: riskCtx.factors,
       };
-      return finalize(null, 'transparent', { signal: 'valid-session', scenario, dwellMs: Math.round(refreshed.dw || 0) });
+      timer && timer.mark('response');
+      return finalize(null, 'transparent', { signal: 'valid-session', scenario, dwellMs: Math.round(refreshed.dw || 0), riskScore: riskCtx.score, riskFactors: riskCtx.factors });
     }
 
     // ---- no session: browser shell/401 or agent challenge ----
     async function handleFresh() {
+      const preCount = (typeof store.get === 'function') ? (store.get(`pre:${ipHash}`) || 0) : 0;
+      const riskCtx = riskEngine.evaluate({ headers: request.headers, ipHash, scenario: requestScenario, preSessionCount: preCount });
+      ctx.tollMetadata = ctx.tollMetadata || {};
+      ctx.tollMetadata.riskScore = riskCtx.score;
+      ctx.tollMetadata.riskFactors = riskCtx.factors;
+
       if (looksLikeBrowser(request.headers)) {
-        ctx.tollMetadata = { transparent: false, reason: 'missing-session' };
+        ctx.tollMetadata = { transparent: false, reason: 'missing-session', ...ctx.tollMetadata };
         if (wantsHtml(request.headers) && ['GET', 'HEAD'].includes(method)) {
           ctx.needsAttestation = true;
           const shell = createShell({
@@ -327,25 +431,41 @@ export function createToll(options = {}) {
             reloadUrl: url.pathname + (url.search || ''),
             clientPath: opts.clientPath,
           });
+          timer && timer.mark('response');
           return finalize(html(shell, { headers: { 'cache-control': 'no-store' } }), 'attestation-required', {
             signal: 'ATTESTATION_REQUIRED',
             reason: 'missing-session',
+            riskScore: riskCtx.score,
+            riskFactors: riskCtx.factors,
           });
         }
         ctx.needsAttestation = true;
+        timer && timer.mark('response');
         return finalize(json({ code: 'ATTESTATION_REQUIRED' }, { status: 401 }), 'attestation-required', {
           signal: 'ATTESTATION_REQUIRED',
           reason: 'missing-session',
+          riskScore: riskCtx.score,
+          riskFactors: riskCtx.factors,
         });
       }
 
       const proofId = headerGet(request.headers, 'x-ai-proof');
+      timer && timer.mark('challenge_issued');
       return proofId ? await verifyChallenge(proofId) : issueChallenge();
     }
 
     function issueChallenge() {
+      if (preSessionExceeded(ipHash)) {
+        ctx.tollMetadata = { transparent: false, reason: 'rate-limited' };
+        timer && timer.mark('response');
+        return finalize(json({ code: 'CHALLENGE_RATE_LIMITED' }, { status: 429 }), 'challenge-failed', {
+          signal: 'CHALLENGE_RATE_LIMITED',
+        });
+      }
       const scenario = requestScenario;
-      const challenge = generateChallenge(scenario);
+      const preCount = (typeof store.get === 'function') ? (store.get(`pre:${ipHash}`) || 0) : 0;
+      const riskCtx = riskEngine.evaluate({ headers: request.headers, ipHash, scenario, preSessionCount: preCount });
+      const challenge = opts.enhancedChallenges !== false ? generateChallengeEnhanced(scenario, { riskScore: riskCtx.score }) : generateChallenge(scenario);
       const record = {
         id: randomHex(8),
         scenario,
@@ -358,10 +478,13 @@ export function createToll(options = {}) {
         ciphertext: challenge.ciphertext,
         meta: challenge.meta,
         options: challenge.options,
+        responseTimeMs: 0, // will be set on verification
+        riskScore: riskCtx.score,
       };
       records.set(record.id, record);
       sweep();
-      ctx.tollMetadata = { transparent: false, reason: 'challenge-issued', scenario };
+      ctx.tollMetadata = { transparent: false, reason: 'challenge-issued', scenario, riskScore: riskCtx.score, riskFactors: riskCtx.factors };
+      timer && timer.mark('response');
       return finalize(
         json(
           {
@@ -377,14 +500,23 @@ export function createToll(options = {}) {
           { status: 433 },
         ),
         'challenge-issued',
-        { signal: 'NO_JS_CLIENT', scenario },
+        { signal: 'NO_JS_CLIENT', scenario, riskScore: riskCtx.score, riskFactors: riskCtx.factors },
       );
     }
 
     async function verifyChallenge(challengeId) {
+      timer && timer.mark('challenge_resolution');
+      if (preSessionExceeded(ipHash)) {
+        ctx.tollMetadata = { transparent: false, reason: 'rate-limited' };
+        timer && timer.mark('response');
+        return finalize(json({ code: 'CHALLENGE_RATE_LIMITED' }, { status: 429 }), 'challenge-failed', {
+          signal: 'CHALLENGE_RATE_LIMITED',
+        });
+      }
       const record = records.get(challengeId);
       if (!record) {
         ctx.tollMetadata = { transparent: false, reason: 'challenge-unknown' };
+        timer && timer.mark('response');
         return finalize(json({ code: 'CHALLENGE_UNKNOWN' }, { status: 403 }), 'challenge-failed', {
           signal: 'CHALLENGE_UNKNOWN',
         });
@@ -392,6 +524,7 @@ export function createToll(options = {}) {
       if (record.ipHash !== ipHash) {
         records.delete(challengeId);
         ctx.tollMetadata = { transparent: false, reason: 'ip-mismatch' };
+        timer && timer.mark('response');
         return finalize(json({ code: 'IP_MISMATCH' }, { status: 403 }), 'challenge-failed', {
           signal: 'IP_MISMATCH',
         });
@@ -399,6 +532,7 @@ export function createToll(options = {}) {
       if (now() - record.issuedAt > opts.challengeTTL) {
         records.delete(challengeId);
         ctx.tollMetadata = { transparent: false, reason: 'challenge-expired' };
+        timer && timer.mark('response');
         return finalize(json({ code: 'CHALLENGE_EXPIRED' }, { status: 403 }), 'challenge-failed', {
           signal: 'CHALLENGE_EXPIRED',
         });
@@ -406,11 +540,26 @@ export function createToll(options = {}) {
 
       record.attempts += 1;
       const responseTime = now() - record.issuedAt;
-      if (responseTime < opts.minResponseTime) {
+      const preCount = (typeof store.get === 'function') ? (store.get(`pre:${ipHash}`) || 0) : 0;
+      const riskCtx = riskEngine.evaluate({ headers: request.headers, ipHash, scenario: record.scenario, preSessionCount: preCount, responseTimeMs: responseTime, attempts: record.attempts });
+      const timeProfile = opts.timeProfile || {};
+      const autoCalibrate = opts.autoCalibrate !== false;
+      let effectiveMinResponseTime = opts.minResponseTime;
+      if (autoCalibrate && timeProfile[record.type]) {
+        const profile = timeProfile[record.type];
+        if (profile && profile.p95 !== undefined) {
+          effectiveMinResponseTime = profile.p95 * (profile.margin ?? 1.2);
+        }
+      }
+      if (riskCtx.score >= 60) effectiveMinResponseTime = Math.max(effectiveMinResponseTime, 1600);
+      record.effectiveMinResponseTime = effectiveMinResponseTime;
+
+      if (responseTime < effectiveMinResponseTime) {
         records.delete(challengeId);
-        const detail = { response_time_ms: responseTime, minimum_required_ms: opts.minResponseTime };
-        reportAgent('MACHINE_SPEED', { ...detail, challengeType: record.type });
-        ctx.tollMetadata = { transparent: false, reason: 'machine-speed' };
+        const detail = { response_time_ms: responseTime, minimum_required_ms: effectiveMinResponseTime };
+        reportAgent('MACHINE_SPEED', { ...detail, challengeType: record.type, riskScore: riskCtx.score });
+        ctx.tollMetadata = { transparent: false, reason: 'machine-speed', riskScore: riskCtx.score, riskFactors: riskCtx.factors };
+        timer && timer.mark('response');
         return finalize(
           json(
             {
@@ -423,30 +572,32 @@ export function createToll(options = {}) {
             { status: 403 },
           ),
           'ai-agent-detected',
-          { signal: 'AI_AGENT_DETECTED', reason: 'MACHINE_SPEED', ...detail },
+          { signal: 'AI_AGENT_DETECTED', reason: 'MACHINE_SPEED', ...detail, challengeType: record.type, responseTimeMs: responseTime, riskScore: riskCtx.score, riskFactors: riskCtx.factors },
         );
       }
 
-      if (record.attempts > 3) {
+      if (record.attempts > 3 || riskCtx.score >= 80) {
         records.delete(challengeId);
-        ctx.tollMetadata = { transparent: false, reason: 'max-attempts' };
+        ctx.tollMetadata = { transparent: false, reason: 'max-attempts', riskScore: riskCtx.score };
+        timer && timer.mark('response');
         return finalize(
           json({ code: 'MAX_ATTEMPTS', attempts_used: record.attempts }, { status: 403 }),
           'challenge-failed',
-          { signal: 'MAX_ATTEMPTS' },
+          { signal: 'MAX_ATTEMPTS', challengeType: record.type, responseTimeMs: responseTime, riskScore: riskCtx.score },
         );
       }
 
       const answer = headerGet(request.headers, 'x-challenge-response');
       if (!validateResponse(record, answer)) {
-        ctx.tollMetadata = { transparent: false, reason: 'wrong-answer' };
+        ctx.tollMetadata = { transparent: false, reason: 'wrong-answer', riskScore: riskCtx.score };
+        timer && timer.mark('response');
         return finalize(
           json(
             { code: 'WRONG_ANSWER', attempts_remaining: 3 - record.attempts, attempts_used: record.attempts },
             { status: 403 },
           ),
           'challenge-failed',
-          { signal: 'WRONG_ANSWER' },
+          { signal: 'WRONG_ANSWER', challengeType: record.type, responseTimeMs: responseTime, riskScore: riskCtx.score },
         );
       }
 
@@ -478,12 +629,44 @@ export function createToll(options = {}) {
         challengeType: record.type,
         scenario: record.scenario,
         dwellMs: 0,
+        riskScore: riskCtx.score,
+        riskFactors: riskCtx.factors,
       };
+      timer && timer.mark('response');
       return finalize(null, 'challenge-validated', {
         signal: 'CHALLENGE_VALIDATED',
         challengeType: record.type,
         scenario: record.scenario,
+        responseTimeMs: responseTime,
+        riskScore: riskCtx.score,
+        riskFactors: riskCtx.factors,
       });
+    }
+  }
+
+  // Fail-open wrapper: an unexpected error in the toll pipeline never takes the
+  // host application down. With failOpen (default) the request passes through,
+  // flagged, instead of failing closed with a 500.
+  async function handle(request, ctx = {}) {
+    try {
+      const res = await toll(request, ctx);
+      if (res && ctx && ctx.out) {
+        if (!ctx.out.headers['x-request-id'] && ctx.tollRequestId) {
+          ctx.out.headers['x-request-id'] = ctx.tollRequestId;
+        }
+      }
+      return res;
+    } catch (err) {
+      if (opts.onError) opts.onError(err, { request, ctx });
+      if (opts.failOpen !== false) {
+        ctx.out = ctx.out || { headers: {}, setCookie: [] };
+        ctx.out.headers['x-tollai-decision'] = 'bypass';
+        ctx.out.headers['x-tollai-error'] = 'fail-open';
+        if (ctx.tollRequestId && !ctx.out.headers['x-request-id']) ctx.out.headers['x-request-id'] = ctx.tollRequestId;
+        ctx.out.setCookie = [];
+        return null;
+      }
+      throw err;
     }
   }
 

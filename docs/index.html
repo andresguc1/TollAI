@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TollAI - Cognitive Toll Protocol | Defend Against AI Agents</title>
+  <meta name="description" content="TollAI - Protocolo de defensa cognitivo contra agentes autónomos de IA. PoW + desafíos de razonamiento + scoring comportamental.">
+  <meta property="og:title" content="TollAI - Cognitive Toll Protocol">
+  <meta property="og:description" content="Protege APIs y aplicaciones contra scraping automatizado y agentes de IA con TollAI">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="/tollai-client.js" defer></script>
+</head>
+<body>
+  <header class="header">
+    <nav class="nav container">
+      <div class="nav__logo">
+        <span class="nav__logo-icon">🛡️</span>
+        <span class="nav__logo-text">TollAI</span>
+      </div>
+      <button class="nav__toggle" id="navToggle" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav__menu" id="navMenu">
+        <li><a href="#inicio">Inicio</a></li>
+        <li><a href="#como-funciona">Cómo Funciona</a></li>
+        <li><a href="#caracteristicas">Características</a></li>
+        <li><a href="#arquitectura">Arquitectura</a></li>
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="#github" class="nav__cta">GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section id="inicio" class="hero">
+      <div class="container">
+        <div class="hero__content">
+          <div class="hero__badge">
+            <span class="hero__badge-dot"></span>
+            Cognitive Toll Protocol
+          </div>
+          <h1 class="hero__title">
+            Protege tus APIs contra <span class="gradient-text">Agentes Autónomos de IA</span>
+          </h1>
+          <p class="hero__subtitle">
+            TollAI distingue entre humanos y bots usando análisis de velocidad cognitiva. 
+            PoW silencioso para navegadores + desafíos de razonamiento para clientes automatizados.
+          </p>
+          <div class="hero__actions">
+            <a href="https://github.com/andres/tollai" class="btn btn--primary" id="github">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+              Ver en GitHub
+            </a>
+            <a href="#demo" class="btn btn--secondary">Probar Demo</a>
+          </div>
+        </div>
+        <div class="hero__visual">
+          <div class="hero__card">
+            <div class="hero__card-header">
+              <span class="hero__card-dot"></span>
+              <span class="hero__card-dot"></span>
+              <span class="hero__card-dot"></span>
+              <span class="hero__card-title">TollAI Flow</span>
+            </div>
+            <div class="hero__card-body">
+              <div class="flow-item">
+                <span class="flow-icon">👤</span>
+                <span class="flow-text">Humano Navegador</span>
+                <span class="flow-badge flow-badge--ok">PoW Silencioso ✓</span>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-item">
+                <span class="flow-icon">🤖</span>
+                <span class="flow-text">Agente Autónomo</span>
+                <span class="flow-badge flow-badge--block">433 + Detección Velocidad ✗</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="como-funciona" class="section">
+      <div class="container">
+        <div class="section__header">
+          <h2 class="section__title">¿Cómo Funciona?</h2>
+          <p class="section__subtitle">Dos caminos complementarios para distinguir humanos de máquinas</p>
+        </div>
+        <div class="grid grid--2">
+          <div class="card">
+            <div class="card__icon">🌐</div>
+            <h3 class="card__title">Para Navegadores Humanos</h3>
+            <ul class="card__list">
+              <li>Shell de atestación invisible al usuario</li>
+              <li>Proof-of-Work SHA-256 en segundo plano (~450ms)</li>
+              <li>Sesión con cookie HttpOnly firmada</li>
+              <li>Dwell time tracking para mutaciones POST</li>
+              <li>Acceso transparente tras verificación</li>
+            </ul>
+          </div>
+          <div class="card">
+            <div class="card__icon">⚡</div>
+            <h3 class="card__title">Para Clientes No-Browser</h3>
+            <ul class="card__list">
+              <li>Desafío HTTP 433 con cifrado multi-capa</li>
+              <li>Preguntas de razonamiento dinámicas</li>
+              <li>Detección por velocidad (&lt;1500ms = bot)</li>
+              <li>Ofuscación: reverse → base64 → substitution</li>
+              <li>Bloqueo con código AI_AGENT_DETECTED</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="caracteristicas" class="section section--alt">
+      <div class="container">
+        <div class="section__header">
+          <h2 class="section__title">Características Principales</h2>
+          <p class="section__subtitle">Defensa integral contra automatización maliciosa</p>
+        </div>
+        <div class="grid grid--3">
+          <div class="feature">
+            <div class="feature__icon">🔐</div>
+            <h4 class="feature__title">PoW + Sesiones Firmadas</h4>
+            <p class="feature__text">Hashcash con IP binding, single-use nonces, tokens HMAC-SHA256</p>
+          </div>
+          <div class="feature">
+            <div class="feature__icon">⏱️</div>
+            <h4 class="feature__title">Análisis de Velocidad</h4>
+            <p class="feature__text">Umbral configurable para distinguir respuesta humana vs máquina</p>
+          </div>
+          <div class="feature">
+            <div class="feature__icon">🎯</div>
+            <h4 class="feature__title">Scoring Comportamental</h4>
+            <p class="feature__text">Motor unificado que combina burst, dwell, velocidad e IP</p>
+          </div>
+          <div class="feature">
+            <div class="feature__icon">🛡️</div>
+            <h4 class="feature__title">12 Escenarios Protegidos</h4>
+            <p class="feature__text">News, Social, Git, Chatbot, Finance, Health, Trading, etc.</p>
+          </div>
+          <div class="feature">
+            <div class="feature__icon">📊</div>
+            <h4 class="feature__title">Observabilidad Completa</h4>
+            <p class="feature__text">Telemetría, logs SOC, métricas por fase, trazabilidad</p>
+          </div>
+          <div class="feature">
+            <div class="feature__icon">🔌</div>
+            <h4 class="feature__title">Multi-Framework</h4>
+            <p class="feature__text">Adapters para Express, Node HTTP, Vercel, Cloudflare, Firebase</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="arquitectura" class="section">
+      <div class="container">
+        <div class="section__header">
+          <h2 class="section__title">Arquitectura</h2>
+          <p class="section__subtitle">Flujo real basado en la implementación</p>
+        </div>
+        <div class="arch-diagram">
+          <div class="arch-row">
+            <div class="arch-node arch-node--client">Cliente<br><small>(Browser / Agent)</small></div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node">Entrada HTTP</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node arch-node--middleware">Middleware TollAI</div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-spacer"></div>
+            <div class="arch-arrow arch-arrow--down">↓</div>
+            <div class="arch-spacer"></div>
+            <div class="arch-arrow arch-arrow--down">↓</div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-node">PoW / Sesión<br><small>(Browser)</small></div>
+            <div class="arch-spacer"></div>
+            <div class="arch-node">Evaluación<br><small>Políticas + Scoring</small></div>
+            <div class="arch-spacer"></div>
+            <div class="arch-node">Desafío 433<br><small>(No-Browser)</small></div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-spacer"></div>
+            <div class="arch-arrow arch-arrow--down">↓</div>
+            <div class="arch-spacer"></div>
+            <div class="arch-arrow arch-arrow--down">↓</div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-node arch-node--ok">Permitir<br><small>Transparente</small></div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node arch-node--app">Aplicación/Víctima</div>
+            <div class="arch-arrow">→</div>
+            <div class="arch-node arch-node--block">Bloquear<br><small>AI_AGENT_DETECTED</small></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="demo" class="section section--alt">
+      <div class="container">
+        <div class="section__header">
+          <h2 class="section__title">Demo en Vivo</h2>
+          <p class="section__subtitle">Esta página está protegida por TollAI</p>
+        </div>
+        <div class="demo-card">
+          <div class="demo-card__header">
+            <span class="demo-card__status" id="tollStatus">
+              <span class="demo-card__dot"></span>
+              Verificando...
+            </span>
+          </div>
+          <div class="demo-card__body">
+            <p>Al cargar esta página, el cliente TollAI ejecuta el protocolo automáticamente:</p>
+            <ol class="demo-card__list">
+              <li>Detecta si hay sesión válida</li>
+              <li>Si no, solicita desafío PoW</li>
+              <li>Resuelve hashes en segundo plano</li>
+              <li>Verifica y obtiene cookie de sesión</li>
+              <li>Permite acceso transparente</li>
+            </ol>
+            <div class="demo-card__info">
+              <code>Ver consola del navegador para logs de TollAI</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__content">
+        <div class="footer__brand">
+          <span class="footer__logo">🛡️ TollAI</span>
+          <p class="footer__text">Cognitive Toll Protocol - PoC para defensa contra agentes IA autónomos</p>
+        </div>
+        <div class="footer__links">
+          <a href="https://github.com/andres/tollai" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/andres/tollai/blob/main/README.md" target="_blank" rel="noopener">Documentación</a>
+          <a href="https://github.com/andres/tollai/issues" target="_blank" rel="noopener">Issues</a>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p>© 2024 TollAI. MIT License.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
