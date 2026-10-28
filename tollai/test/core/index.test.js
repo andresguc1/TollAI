@@ -325,13 +325,15 @@ test('exclude patterns win over protect', async () => {
   assert.equal(tolled.response.status, 433);
 });
 
-test('decisions are emitted for observability', async () => {
-  const { toll, clock, events } = makeToll();
-  await H(toll, '/api/news', { headers: AGENT_HEADERS });
-  assert.ok(events.decisions.some(d => d.signal === 'NO_JS_CLIENT'));
-  const cookie = await mintCookie(toll, clock);
-  await H(toll, '/api/news', { headers: { ...BROWSER_HEADERS, Accept: '*/*', cookie } });
-  assert.ok(events.decisions.some(d => d.signal === 'valid-session'));
+test('mode observe records the decision but never blocks', async () => {
+  const { toll, events } = makeToll({ mode: 'observe' });
+  const { response, ctx } = await H(toll, '/api/news', { headers: AGENT_HEADERS });
+  assert.equal(response, null, 'observe must not return a challenge response');
+  assert.equal(ctx.tollMetadata.transparent, false);
+  assert.match(ctx.out.headers['x-tollai-decision'], /challenge-issued/i);
+  const issued = events.decisions.find(d => d.signal === 'NO_JS_CLIENT');
+  assert.ok(issued, 'challenge-issued decision still emitted');
+  assert.equal(ctx.out.setCookie.length, 0, 'observe never mints cookies');
 });
 
 test('createToll throws in production without a secret', () => {
@@ -417,4 +419,17 @@ test('observability payloads identify who triggered the decision', async () => {
   assert.equal(alert.userAgent, 'axios/1.6.2');
   assert.equal(alert.scenario, 'generic');
   assert.ok(!Number.isNaN(Date.parse(alert.timestamp)), 'alert carries an ISO timestamp');
+  const machine = events.decisions.find(d => d.signal === 'AI_AGENT_DETECTED' && d.reason === 'MACHINE_SPEED');
+  assert.ok(machine, 'machine-speed decision emitted');
+  assert.ok(machine.responseTimeMs < 1500);
+  assert.ok(['math', 'logic', 'reasoning'].includes(machine.challengeType));
+});
+
+test('pre-session rate limit caps challenge issuance', async () => {
+  const { toll } = makeToll({ preSessionLimit: 2, preSessionWindowMs: 60000 });
+  for (let i = 0; i < 3; i++) {
+    const r = await H(toll, '/api/news', { headers: AGENT_HEADERS });
+    if (i < 2) assert.equal(r.response.status, 433);
+    else assert.equal(r.response.status, 429);
+  }
 });

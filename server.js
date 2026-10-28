@@ -81,6 +81,13 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// AI-crawler hygiene (voluntary; enforcement is the toll itself). robots.txt is
+// served from public/ by express.static below.
+app.use((req, res, next) => {
+  res.set('X-Robots-Tag', 'noai, noimageai, noarchive');
+  next();
+});
+
 // Single browser-client source: the package copy is canonical and served here,
 // so public/ no longer ships a duplicate that could drift.
 const CLIENT_SOURCE = fs.readFileSync(
@@ -156,6 +163,7 @@ const TELEMETRY_DECISION = {
   WRONG_ANSWER: 'blocked',
   IP_MISMATCH: 'blocked',
   MAX_ATTEMPTS: 'blocked',
+  CHALLENGE_RATE_LIMITED: 'blocked',
   AI_AGENT_DETECTED: 'blocked',
   CHALLENGE_VALIDATED: 'admitted'
 };
@@ -176,6 +184,8 @@ function onDecision(d) {
     decision,
     signal: d.signal,
     ...(d.reason ? { detail: String(d.reason) } : {}),
+    ...(d.challengeType ? { challengeType: d.challengeType } : {}),
+    ...(d.responseTimeMs !== undefined ? { responseTimeMs: d.responseTimeMs } : {}),
     ...(d.dwellMs !== undefined ? { dwellMs: d.dwellMs, requiredMs: d.requiredMs } : {})
   });
 }
@@ -183,9 +193,12 @@ function onDecision(d) {
 // The toll = the local tollai/ package. Explicit mounting (per route via
 // conditionalTollAI, plus the protocol routes below) means the policy only
 // has to approve wherever the middleware is actually attached.
+//   TOLLAI_MODE=observe  -> shadow mode (decide + record, never enforce)
+//   TOLLAI_MODE=off      -> complete bypass
+//   TOLLAI_MODE=gate     -> enforce (default)
 const toll = createToll({
   secret: process.env.TOLLAI_SECRET || undefined,
-  mode: 'gate',
+  mode: process.env.TOLLAI_MODE || 'gate',
   minResponseTime: 1500,
   challengeTTL: 60000,
   powDifficulty: parseInt(process.env.TOLLAI_POW_DIFFICULTY || '14', 10),
@@ -264,6 +277,11 @@ app.get('/tollai/telemetry', (req, res) => {
   const limit = Math.min(parseInt(req.query.limit || '200', 10) || 200, telemetry.maxEvents);
   res.set('Cache-Control', 'no-store');
   res.json(telemetry.snapshot({ limit }));
+});
+
+app.get('/tollai/stats', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(telemetry.cognitionStats());
 });
 
 app.delete('/tollai/telemetry', (req, res) => {

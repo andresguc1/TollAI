@@ -53,7 +53,8 @@ export function createPolicy({ mode = 'api', protect = ['/api/*'], exclude = [] 
     shouldToll(path) {
       if (matchPath(excluded, path)) return false;
       if (mode === 'off') return false;
-      if (mode === 'gate') return true;
+      // 'observe' shadows 'gate': it must see every request the gate would toll.
+      if (mode === 'gate' || mode === 'observe') return true;
       return matchPath(compiled, path);
     },
   };

@@ -50,7 +50,7 @@ export interface DwellDeferredEvent {
 }
 
 export interface TollOptions {
-  mode?: 'api' | 'gate' | 'off';
+  mode?: 'api' | 'gate' | 'observe' | 'off';
   protect?: string[];
   exclude?: string[];
   powDifficulty?: number;
@@ -65,6 +65,13 @@ export interface TollOptions {
   rateLimit?: number;
   sessionQuota?: number;
   maxSessions?: number;
+  preSessionLimit?: number;
+  preSessionWindowMs?: number;
+  timeProfile?: Record<string, { p95: number; margin?: number }>;
+  autoCalibrate?: boolean;
+  maxConcurrentSessionsPerIp?: number;
+  exempt?: ((ctx: { request: Request; ctx: TollContext; ip: string; ipHash: string; scenario: string; mode: string }) => boolean) | string[];
+  failOpen?: boolean;
   clientSource?: string;
   clientPath?: string;
   secret?: string;
@@ -74,6 +81,7 @@ export interface TollOptions {
   onAIAgentDetected?: (alert: AIAgentAlert) => void;
   onSessionIssued?: (session: SessionIssuedEvent) => void;
   onDwellDeferred?: (deferred: DwellDeferredEvent) => void;
+  onError?: (error: Error, context: { request: Request; ctx: TollContext }) => void;
 }
 
 export interface TollContext {

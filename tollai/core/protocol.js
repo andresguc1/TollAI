@@ -28,8 +28,21 @@ export function createProtocol(services) {
   return async function handleProtocol(request, { ip = '', now: requestNow = now() } = {}) {
     const url = new URL(request.url);
 
+    // Pre-session rate limit on the proof endpoints: a share of the PoW counter
+    // store keyed by ipHash protects the server from challenge farming (each
+    // verify attempt costs CPU, and minted sessions consume the session cap).
+    async function preSessionBlocked() {
+      if (!options.preSessionLimit) return false;
+      const ipHash = await ipHashFor(secret, ip);
+      const count = pow.store.incr(`pre:${ipHash}`, options.preSessionWindowMs, requestNow);
+      return count > options.preSessionLimit;
+    }
+
     if (url.pathname === '/tollai/challenge') {
-      const issued = await pow.issue(now());
+      if (await preSessionBlocked()) {
+        return json({ code: 'CHALLENGE_RATE_LIMITED' }, { status: 429 });
+      }
+      const issued = await pow.issue(requestNow);
       return json(
         { challenge: issued.challenge, difficulty: issued.difficulty, expires_in: issued.expires_in },
         { headers: { 'cache-control': 'no-store' } },
@@ -37,6 +50,9 @@ export function createProtocol(services) {
     }
 
     if (url.pathname === '/tollai/verify') {
+      if (await preSessionBlocked()) {
+        return json({ code: 'CHALLENGE_RATE_LIMITED' }, { status: 429 });
+      }
       let body;
       try {
         body = await request.json();

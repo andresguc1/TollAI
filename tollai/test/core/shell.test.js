@@ -9,6 +9,7 @@ test('createShell renders the attestation page with scenario and client script',
   assert.match(shell, /Paying the cognitive toll for <code>news-portal<\/code>/);
   assert.match(shell, /<script src="\/tollai\/client\.js"><\/script>/);
   assert.ok(shell.includes('window.TOLLAI_RELOAD_URL'));
+  assert.match(shell, /<meta name="robots"/);
 });
 
 test('createShell embeds the reload URL as JSON', () => {

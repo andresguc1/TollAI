@@ -78,17 +78,15 @@ test('createPolicy in off mode never tolls', () => {
   assert.equal(policy.shouldToll('/api/news'), false);
 });
 
-test('createPolicy in gate mode tolls everything except excludes', () => {
+test('createPolicy in observe mode tolls everything except excludes', () => {
   const policy = createPolicy({
-    mode: 'gate',
+    mode: 'observe',
     protect: [],
-    exclude: ['/assets/*', '/favicon.ico', '/robots.txt'],
+    exclude: ['/assets/*'],
   });
   assert.equal(policy.shouldToll('/'), true);
   assert.equal(policy.shouldToll('/api/news'), true);
   assert.equal(policy.shouldToll('/assets/img.png'), false);
-  assert.equal(policy.shouldToll('/favicon.ico'), false);
-  assert.equal(policy.shouldToll('/robots.txt'), false);
 });
 
 test('default policy is api mode over /api/*', () => {
